@@ -131,14 +131,12 @@
         try {
             updateWords();
             refreshSpeechSection();
-            // 初期表示時にもテキストエリアの高さを自動調整
             document.querySelectorAll('textarea').forEach(el => autoResize(el));
         } catch (e) {
             console.error(e);
         }
     };
 
-    // テキストエリアの文字数に応じて高さを自動伸縮する関数
     function autoResize(textarea) {
         textarea.style.height = 'auto';
         textarea.style.height = (textarea.scrollHeight) + 'px';
@@ -183,7 +181,6 @@
             }
         };
 
-        // スマホで途中で切れた場合に自動で再接続する処理
         jpRecognition.onend = () => {
             if (isJpRecordingActive) {
                 try { jpRecognition.start(); } catch (e) {}
@@ -231,33 +228,59 @@
             alert("先にステップ②で英文を翻訳してください！");
             return;
         }
-        const advancedDictionary = {
+
+        // 多彩なジャンルの重要英単語データベース
+        const globalDictionary = {
+            "movie": { pron: "/ˈmuːvi/", meaning: "映画", example: "I watched a great movie yesterday." },
+            "film": { pron: "/fɪlm/", meaning: "映画、フィルム", example: "This film won many awards." },
+            "music": { pron: "/ˈmjuːzɪk/", meaning: "音楽", example: "Listen to relaxing music." },
+            "song": { pron: "/sɔːŋ/", meaning: "歌、曲", example: "She sang a beautiful song." },
+            "singer": { pron: "/ˈsɪŋər/", meaning: "歌手", example: "He is a famous singer." },
+            "dance": { pron: "/dæns/", meaning: "ダンス、踊る", example: "They love to dance together." },
+            "actor": { pron: "/ˈæktər/", meaning: "俳優", example: "He is a talented actor." },
+            "performance": { pron: /pərˈfɔːrməns/, meaning: "パフォーマンス、演技", example: "It was an amazing performance." },
+            "story": { pron: "/ˈstɔːri/", meaning: "物語、話", example: "The story made me cry." },
             "feelings": { pron: "/ˈfiːlɪŋz/", meaning: "気持ち、感情", example: "I cannot hide my true feelings." },
-            "promotional": { pron: "/prəˈmoʊʃənl/", meaning: "宣伝用の", example: "He watched promotional videos." },
-            "expressiveness": { pron: "/ɪkˈsprɛsɪvnəs/", meaning: "表現力", example: "Her dance has amazing expressiveness." },
-            "overwhelming": { pron: "/ˌoʊvərˈwɛlmɪŋ/", meaning: "圧倒的な", example: "His talent was overwhelming." },
-            "singing voice": { pron: "/ˈsɪŋɪŋ vɔɪs/", meaning: "歌声", example: "She has a unique singing voice." },
-            "recently": { pron: "/ˈriːsəntli/", meaning: "最近", example: "I saw a great movie recently." },
-            "impressive": { pron: "/ɪmˈprɛsɪv/", meaning: "印象的な", example: "It was an impressive performance." },
-            "atmosphere": { pron: "/ˈætməsˌfɪr/", meaning: "雰囲気", example: "I love the atmosphere of this stage." },
-            "inspiration": { pron: "/ˌɪnspəˈreɪʃən/", meaning: "インスピレーション", example: "He is my lifelong inspiration." },
-            "masterpiece": { pron: "/ˈmæstərˌpiːs/", meaning: "傑作、名作", example: "This song is an absolute masterpiece." },
-            "memorable": { pron: "/ˈmɛmərəbəl/", meaning: "記憶に残る", example: "It was a memorable experience." },
-            "passionate": { pron: "/ˈpæʃənət/", meaning: "情熱的な", example: "He gave a passionate speech." },
-            "influence": { pron: "/ˈnfluəns/", meaning: "影響（を与える）", example: "He influenced millions of people." },
-            "legendary": { pron: "/lɛdʒənˈdɛri/", meaning: "伝説的な", example: "He is a legendary entertainer." },
-            "emotion": { pron: "/ɪˈmoʊʃən/", meaning: "感情、感動", example: "His music is full of emotion." }
+            "love": { pron: "/lʌv/", meaning: "愛、愛する", example: "Love is patient and kind." },
+            "peace": { pron: "/piːs/", meaning: "平和", example: "We all want world peace." },
+            "hope": { pron: "/hoʊp/", meaning: "希望", example: "Never lose hope." },
+            "time": { pron: "/taɪm/", meaning: "時間", example: "Time flies so fast." },
+            "life": { pron: "/laɪf/", meaning: "人生、生活", example: "Enjoy your life to the fullest." },
+            "world": { pron: /wɜːrld/, meaning: "世界", example: "Travel around the world." },
+            "people": { pron: "/ˈpiːpəl/", meaning: "人々", example: "Many people gathered here." },
+            "friend": { pron: "/frɛnd/", meaning: "友達", example: "She is my best friend." },
+            "happy": { pron: "/ˈhæpi/", meaning: "嬉しい、幸せな", example: "I am very happy today." },
+            "wonderful": { pron: "/ˈwʌndərfəl/", meaning: "素晴らしい", example: "What a wonderful day!" },
+            "beautiful": { pron: "/ˈbjuːtɪfəl/", meaning: "美しい", example: "The sunset was beautiful." },
+            "great": { pron: "/greɪt/", meaning: "すごい、偉大な", example: "That is a great idea." },
+            "important": { pron: "/ɪmˈpɔːrtənt/", meaning: "重要な", example: "Health is important." },
+            "remember": { pron: "/rɪˈmɛmbər/", meaning: "覚えている、思い出す", example: "I remember that day." },
+            "create": { pron: "/kriˈeɪt/", meaning: "創る、作成する", example: "Create your own future." },
+            "express": { pron: "/ɪkˈsprɛs/", meaning: "表現する", example:daq => "Express your feelings freely." },
+            "impressive": { pron: "/ɪmˈprɛsɪv/", meaning: "印象的な", example: "It was an impressive show." },
+            "recently": { pron: "/ˈriːsəntli/", meaning: "最近", example: "I started learning English recently." },
+            "experience": { pron: "/ɪkˈspɪriəns/", meaning: "経験", example: "It was a valuable experience." }
         };
+
         currentVocabData = [];
         const lowerText = text.toLowerCase();
-        for (let [word, info] of Object.entries(advancedDictionary)) {
-            if (lowerText.includes(word.toLowerCase())) currentVocabData.push({ word, ...info });
-        }
-        for (let [word, info] of Object.entries(advancedDictionary)) {
-            if (currentVocabData.length < 12 && !currentVocabData.some(item => item.word === word)) {
+        
+        // ②の英文に含まれている単語を辞書から自動検出して抽出する
+        for (let [word, info] of Object.entries(globalDictionary)) {
+            // 単語単位での一致をチェック
+            const regex = new RegExp(`\\b${word}\\b`, 'i');
+            if (regex.test(lowerText)) {
                 currentVocabData.push({ word, ...info });
             }
         }
+
+        // もし一致する単語が少なすぎた場合は、英文に含まれる主要な単語を追加するか、最低限の関連単語を表示する
+        if (currentVocabData.length === 0) {
+            // 英文中の最初のいくつかの単語を拾うなどしてフォールバック
+            currentVocabData.push({ word: "learn", pron: "/lɜːrn/", meaning: "学ぶ", example: "I want to learn English." });
+            currentVocabData.push({ word: "study", pron: "/ˈstʌdi/", meaning: "勉強する", example: "Study hard every day." });
+        }
+
         renderVocabTable();
     }
 
@@ -269,7 +292,9 @@
             row.insertCell(0).innerHTML = `<span class="hidden-spoiler" onclick="this.classList.toggle('revealed')">${item.word}</span>`;
             row.insertCell(1).textContent = item.pron;
             row.insertCell(2).innerHTML = `<span class="hidden-spoiler" onclick="this.classList.toggle('revealed')">${item.meaning}</span>`;
-            row.insertCell(3).textContent = item.example;
+            // exampleが関数の場合の保険
+            let exText = typeof item.example === 'function' ? item.example() : item.example;
+            row.insertCell(3).textContent = exText;
             let cellBtn = row.insertCell(4);
             let btn = document.createElement('button');
             btn.textContent = "🔊";
@@ -303,202 +328,4 @@
                 "Thinking about this brings strong feelings and great memories to my mind. " +
                 "Every single day, I try to spend time enjoying things that inspire me and make me feel alive. " +
                 "Having passions in our lives gives us energy and hope for the future. " +
-                "Many people around the world share similar interests, and we can connect through our shared love for great art. " +
-                "Learning English helps me express these personal thoughts and ideas more clearly. " +
-                "Even when things are difficult, listening to great music can change our mood completely. " +
-                "I want to keep practicing my English speaking and reading every day so I can share more stories. " +
-                "I believe small steps every day will lead to great progress. " +
-                "Thank you for reading this, and I hope you also enjoy learning English and sharing your wonderful stories!";
-            readingArea.value = slimPassage;
-            autoResize(readingArea);
-            updateWords();
-            updateInteractiveReadingBox(slimPassage);
-            alert("A1英文を作成しました！⑤のセクションでカーソル辞書も使えます。");
-        }, 500);
-    }
-
-    const hoverDictionary = {
-        "thoughts": "考え、思い", "topic": "話題, テーマ", "feelings": "気持ち, 感情",
-        "memories": "思い出", "inspire": "ひらめきを与える", "alive": "生きている",
-        "passions": "情熱", "energy": "エネルギー", "hope": "希望",
-        "interests": "興味、関心", "connect": "つながる", "express": "表現する",
-        "difficult": "難しい", "completely": "完全に", "progress": "進歩"
-    };
-
-    function updateInteractiveReadingBox(text) {
-        const box = document.getElementById('interactiveReadingText');
-        if (!box) return;
-        const words = text.split(/\s+/);
-        box.innerHTML = words.map(rawWord => {
-            const cleanWord = rawWord.replace(/[^a-zA-Z]/g, "").toLowerCase();
-            return hoverDictionary[cleanWord] ? 
-                `<span class="tooltip-word" data-meaning="${hoverDictionary[cleanWord]}">${rawWord}</span>` : rawWord;
-        }).join(" ");
-    }
-
-    function updateWords() {
-        const readingText = document.getElementById('readingText');
-        const wordCountSpan = document.getElementById('wordCount');
-        if (!readingText) return;
-        const text = readingText.value.trim();
-        const words = text === "" ? 0 : text.split(/\s+/).length;
-        if (wordCountSpan) wordCountSpan.textContent = words;
-        updateInteractiveReadingBox(text);
-    }
-
-    let startTime = 0;
-    function startTimer() { startTime = new Date().getTime(); alert("計測スタート！読み終わったら「計測終了」を押してください。"); }
-    function stopTimer() {
-        if (!startTime) { alert("先に計測を開始してください。"); return; }
-        let seconds = (new Date().getTime() - startTime) / 1000;
-        const wordCountSpan = document.getElementById('wordCount');
-        let words = wordCountSpan ? parseInt(wordCountSpan.textContent) : 0;
-        if (seconds > 0 && words > 0) {
-            let wpm = Math.round((words / seconds) * 60);
-            document.getElementById('wpmResult').textContent = wpm;
-            alert(`タイム: ${seconds.toFixed(1)}秒, WPM: ${wpm}`);
-        }
-        startTime = 0;
-    }
-
-    const speedSlider = document.getElementById('speedSlider');
-    const speedVal = document.getElementById('speedVal');
-    if (speedSlider && speedVal) speedSlider.addEventListener('input', () => { speedVal.textContent = speedSlider.value; });
-
-    let utterance = null;
-    function speakText() {
-        const readingText = document.getElementById('readingText');
-        if (!readingText) return;
-        window.speechSynthesis.cancel();
-        utterance = new SpeechSynthesisUtterance(readingText.value);
-        utterance.lang = 'en-US';
-        utterance.rate = parseFloat(speedSlider ? speedSlider.value : 1.0);
-        window.speechSynthesis.speak(utterance);
-    }
-    function stopSpeech() { window.speechSynthesis.cancel(); }
-
-    let mediaRecorder, audioChunks = [], countdownInterval = null, timeLeft = 60, enRecognition;
-    let isRecordingActive = false, accumulatedTranscript = "";
-
-    function startEnglishRecording() {
-        if (countdownInterval) clearInterval(countdownInterval);
-        audioChunks = []; timeLeft = 60; accumulatedTranscript = ""; isRecordingActive = true;
-        document.getElementById('timerDisplay').textContent = timeLeft;
-        document.getElementById('transcriptBox').textContent = "(音声認識中...)";
-
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(audioChunks, { type: 'audio/mp3' });
-                const player = document.getElementById('audioPlayback');
-                player.src = URL.createObjectURL(blob);
-                player.style.display = 'block';
-            };
-            mediaRecorder.start();
-            countdownInterval = setInterval(() => {
-                timeLeft--;
-                document.getElementById('timerDisplay').textContent = timeLeft;
-                if (timeLeft <= 0) stopEnglishRecording();
-            }, 1000);
-            startSpeechRecognitionLoop();
-        }).catch(err => alert("マイクの許可が必要です。"));
-    }
-
-    function startSpeechRecognitionLoop() {
-        if (!isRecordingActive) return;
-        if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        enRecognition = new SpeechRecognition();
-        enRecognition.lang = 'en-US';
-        enRecognition.continuous = true;
-        enRecognition.interimResults = true;
-        enRecognition.onresult = (ev) => {
-            let interim = "";
-            for (let i = ev.resultIndex; i < ev.results.length; ++i) {
-                if (ev.results[i].isFinal) accumulatedTranscript += ev.results[i][0].transcript + " ";
-                else interim += ev.results[i][0].transcript;
-            }
-            document.getElementById('transcriptBox').textContent = accumulatedTranscript + interim;
-        };
-        enRecognition.onend = () => { if (isRecordingActive) { try { enRecognition.start(); } catch (e) {} } };
-        try { enRecognition.start(); } catch (e) {}
-    }
-
-    function stopEnglishRecording() {
-        isRecordingActive = false;
-        if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-        if (enRecognition) { try { enRecognition.abort(); } catch(e) {} }
-        const box = document.getElementById('transcriptBox');
-        box.textContent = box.textContent.includes("音声認識中") && !accumulatedTranscript.trim() ? 
-            "(音声が検出されませんでした)" : (accumulatedTranscript.trim() || box.textContent.trim());
-    }
-
-    async function exportDataToFile() {
-        const sessionData = {
-            startDate: startDateStr,
-            dayNum: currentDayNum,
-            date: new Date().toLocaleString(),
-            jpText: document.getElementById('jpSpeechText').value,
-            enText: document.getElementById('enTranslatedText').textContent,
-            readingText: document.getElementById('readingText').value
-        };
-        const today = new Date();
-        const fileName = `english_study_${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}_day${currentDayNum}.json`;
-        const jsonString = JSON.stringify(sessionData, null, 2);
-        const file = new File([jsonString], fileName, { type: "application/json" });
-
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                await navigator.share({ files: [file], title: '英語学習データ', text: '今日の学習データです' });
-                return;
-            } catch (err) {
-                if (err.name === 'AbortError') return;
-            }
-        }
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = fileName;
-        document.body.appendChild(a); a.click(); a.remove();
-        URL.revokeObjectURL(url);
-        alert(`学習データを「${fileName}」として保存しました！`);
-    }
-
-    function importDataFromFile() {
-        const fileInput = document.getElementById('loadFileInput');
-        if (!fileInput.files || fileInput.files.length === 0) {
-            alert("ファイルが選択されていません。ファイルを選んでからボタンを押してください。");
-            return;
-        }
-        const file = fileInput.files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = JSON.parse(e.target.result);
-                if (data.jpText !== undefined) {
-                    const jpBox = document.getElementById('jpSpeechText');
-                    jpBox.value = data.jpText;
-                    autoResize(jpBox);
-                }
-                if (data.enText !== undefined) {
-                    document.getElementById('enTranslatedText').textContent = data.enText;
-                }
-                if (data.readingText !== undefined) {
-                    const readingBox = document.getElementById('readingText');
-                    readingBox.value = data.readingText;
-                    autoResize(readingBox);
-                    updateWords();
-                }
-                alert("過去の学習データを正常に読み込みました！");
-            } catch (err) {
-                alert("ファイルの読み込みに失敗しました。正しいJSONファイルか確認してください。");
-            }
-        };
-        reader.readAsText(file);
-    }
-</script>
-
-</body>
-</html>
+                "Many people around the world share similar interests, and we can connect through
