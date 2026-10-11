@@ -202,7 +202,7 @@
         }
     }
 
-    // ② 英訳処理（MyMemory APIを確実に呼び出すように修正）
+    // ② 確実に動作する安定版の翻訳処理
     async function translateText() {
         const input = document.getElementById('jpSpeechText').value;
         const output = document.getElementById('enTranslatedText');
@@ -215,10 +215,10 @@
             if (data && data.responseData && data.responseData.translatedText) {
                 output.textContent = data.responseData.translatedText;
             } else {
-                output.textContent = "翻訳に失敗しました。";
+                output.textContent = "翻訳に失敗しました。もう一度お試しください。";
             }
         } catch (e) {
-            output.textContent = "ネットワークエラーが発生しました。";
+            output.textContent = "ネットワークエラーが発生しました。接続を確認してください。";
         }
     }
 
@@ -227,8 +227,8 @@
     // ③ 入力された英文から動的に重要単語・イディオムを抽出して生成する関数
     async function extractVocabFromText() {
         const text = document.getElementById('enTranslatedText').textContent;
-        if (!text || text.includes("翻訳された英文がここに表示されます") || text.includes("翻訳中")) {
-            alert("先にステップ②で英文を翻訳してください！");
+        if (!text || text.includes("翻訳された英文がここに表示されます") || text.includes("翻訳中") || text.includes("失敗")) {
+            alert("先にステップ②で正しく英文を翻訳してください！");
             return;
         }
 
@@ -334,16 +334,4 @@
         }, 500);
     }
 
-    const hoverDictionary = {
-        "thoughts": "考え、思い", "topic": "話題, テーマ", "feelings": "気持ち, 感情",
-        "memories": "思い出", "inspire": "ひらめきを与える", "alive": "生きている",
-        "passions": "情熱", "energy": "エネルギー", "hope": "希望",
-        "interests": "興味、関心", "connect": "つながる", "express": "表現する",
-        "difficult": "難しい", "completely": "完全に", "progress": "進歩"
-    };
-
-    function updateInteractiveReadingBox(text) {
-        const box = document.getElementById('interactiveReadingText');
-        if (!box) return;
-        const words = text.split(/\s+/);
-        box
+    const hover
