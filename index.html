@@ -334,4 +334,188 @@
         }, 500);
     }
 
-    const hover
+    const hoverDictionary = {
+        "thoughts": "考え、思い", "topic": "話題, テーマ", "feelings": "気持ち, 感情",
+        "memories": "思い出", "inspire": "ひらめきを与える", "alive": "生きている",
+        "passions": "情熱", "energy": "エネルギー", "hope": "希望",
+        "interests": "興味、関心", "connect": "つながる", "express": "表現する",
+        "difficult": "難しい", "completely": "完全に", "progress": "進歩"
+    };
+
+    function updateInteractiveReadingBox(text) {
+        const box = document.getElementById('interactiveReadingText');
+        if (!box) return;
+        const words = text.split(/\s+/);
+        box.innerHTML = words.map(rawWord => {
+            const cleanWord = rawWord.replace(/[^a-zA-Z]/g, "").toLowerCase();
+            return hoverDictionary[cleanWord] ? 
+                `<span class="tooltip-word" data-meaning="${hoverDictionary[cleanWord]}">${rawWord}</span>` : rawWord;
+        }).join(" ");
+    }
+
+    function updateWords() {
+        const readingText = document.getElementById('readingText');
+        const wordCountSpan = document.getElementById('wordCount');
+        if (!readingText) return;
+        const text = readingText.value.trim();
+        const words = text === "" ? 0 : text.split(/\s+/).length;
+        if (wordCountSpan) wordCountSpan.textContent = words;
+        updateInteractiveReadingBox(text);
+    }
+
+    let startTime = 0;
+    function startTimer() { startTime = new Date().getTime(); alert("計測スタート！読み終わったら「計測終了」を押してください。"); }
+    function stopTimer() {
+        if (!startTime) { alert("先に計測を開始してください。"); return; }
+        let seconds = (new Date().getTime() - startTime) / 1000;
+        const wordCountSpan = document.getElementById('wordCount');
+        let words = wordCountSpan ? parseInt(wordCountSpan.textContent) : 0;
+        if (seconds > 0 && words > 0) {
+            let wpm = Math.round((words / seconds) * 60);
+            document.getElementById('wpmResult').textContent = wpm;
+            alert(`タイム: ${seconds.toFixed(1)}秒, WPM: ${wpm}`);
+        }
+        startTime = 0;
+    }
+
+    const speedSlider = document.getElementById('speedSlider');
+    const speedVal = document.getElementById('speedVal');
+    if (speedSlider && speedVal) speedSlider.addEventListener('input', () => { speedVal.textContent = speedSlider.value; });
+
+    let utterance = null;
+    function speakText() {
+        const readingText = document.getElementById('readingText');
+        if (!readingText) return;
+        window.speechSynthesis.cancel();
+        utterance = new SpeechSynthesisUtterance(readingText.value);
+        utterance.lang = 'en-US';
+        utterance.rate = parseFloat(speedSlider ? speedSlider.value : 1.0);
+        window.speechSynthesis.speak(utterance);
+    }
+    function stopSpeech() { window.speechSynthesis.cancel(); }
+
+    let mediaRecorder, audioChunks = [], countdownInterval = null, timeLeft = 60, enRecognition;
+    let isRecordingActive = false, accumulatedTranscript = "";
+
+    function startEnglishRecording() {
+        if (countdownInterval) clearInterval(countdownInterval);
+        audioChunks = []; timeLeft = 60; accumulatedTranscript = ""; isRecordingActive = true;
+        document.getElementById('timerDisplay').textContent = timeLeft;
+        document.getElementById('transcriptBox').textContent = "(音声認識中...)";
+
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(audioChunks, { type: 'audio/mp3' });
+                const player = document.getElementById('audioPlayback');
+                player.src = URL.createObjectURL(blob);
+                player.style.display = 'block';
+            };
+            mediaRecorder.start();
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timerDisplay').textContent = timeLeft;
+                if (timeLeft <= 0) stopEnglishRecording();
+            }, 1000);
+            startSpeechRecognitionLoop();
+        }).catch(err => alert("マイクの許可が必要です。"));
+    }
+
+    function startSpeechRecognitionLoop() {
+        if (!isRecordingActive) return;
+        if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        enRecognition = new SpeechRecognition();
+        enRecognition.lang = 'en-US';
+        enRecognition.continuous = true;
+        enRecognition.interimResults = true;
+        enRecognition.onresult = (ev) => {
+            let interim = "";
+            for (let i = ev.resultIndex; i < ev.results.length; ++i) {
+                if (ev.results[i].isFinal) accumulatedTranscript += ev.results[i][0].transcript + " ";
+                else interim += ev.results[i][0].transcript;
+            }
+            document.getElementById('transcriptBox').textContent = accumulatedTranscript + interim;
+        };
+        enRecognition.onend = () => { if (isRecordingActive) { try { enRecognition.start(); } catch (e) {} } };
+        try { enRecognition.start(); } catch (e) {}
+    }
+
+    function stopEnglishRecording() {
+        isRecordingActive = false;
+        if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+        if (enRecognition) { try { enRecognition.abort(); } catch(e) {} }
+        const box = document.getElementById('transcriptBox');
+        box.textContent = box.textContent.includes("音声認識中") && !accumulatedTranscript.trim() ? 
+            "(音声が検出されませんでした)" : (accumulatedTranscript.trim() || box.textContent.trim());
+    }
+
+    async function exportDataToFile() {
+        const sessionData = {
+            startDate: startDateStr,
+            dayNum: currentDayNum,
+            date: new Date().toLocaleString(),
+            jpText: document.getElementById('jpSpeechText').value,
+            enText: document.getElementById('enTranslatedText').textContent,
+            readingText: document.getElementById('readingText').value
+        };
+        const today = new Date();
+        const fileName = `english_study_${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}_day${currentDayNum}.json`;
+        const jsonString = JSON.stringify(sessionData, null, 2);
+        const file = new File([jsonString], fileName, { type: "application/json" });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({ files: [file], title: '英語学習データ', text: '今日の学習データです' });
+                return;
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+            }
+        }
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = fileName;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        alert(`学習データを「${fileName}」として保存しました！`);
+    }
+
+    function importDataFromFile() {
+        const fileInput = document.getElementById('loadFileInput');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert("ファイルが選択されていません。ファイルを選んでからボタンを押してください。");
+            return;
+        }
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.jpText !== undefined) {
+                    const jpBox = document.getElementById('jpSpeechText');
+                    jpBox.value = data.jpText;
+                    autoResize(jpBox);
+                }
+                if (data.enText !== undefined) {
+                    document.getElementById('enTranslatedText').textContent = data.enText;
+                }
+                if (data.readingText !== undefined) {
+                    const readingBox = document.getElementById('readingText');
+                    readingBox.value = data.readingText;
+                    autoResize(readingBox);
+                    updateWords();
+                }
+                alert("過去の学習データを正常に読み込みました！");
+            } catch (err) {
+                alert("ファイルの読み込みに失敗しました。正しいJSONファイルか確認してください。");
+            }
+        };
+        reader.readAsText(file);
+    }
+</script>
+
+</body>
+</html>
