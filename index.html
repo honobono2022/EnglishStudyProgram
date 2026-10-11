@@ -61,15 +61,15 @@
     <!-- ③ 重要単語・言い回し -->
     <div class="step-card">
         <h3>③ 実用的な重要単語・言い回しと暗記トレーニング</h3>
-        <button onclick="extractVocabFromText()">🔍 英文から高校レベル重要単語・チャンクを抽出する</button>
+        <button onclick="extractVocabFromText()" class="generate">🔍 英文から重要単語・イディオムを自動抽出する</button>
         <div style="margin: 10px 0;">
             <button class="toggle-btn" onclick="toggleMode('meaning')">💡 意味を隠す / 表示</button>
             <button class="toggle-btn" onclick="toggleMode('word')">🔤 英語を隠す / 表示</button>
         </div>
         <div style="overflow-x: auto;">
             <table class="vocab-table" id="vocabTable">
-                <tr><th>英語・チャンク</th><th>発音</th><th>意味</th><th>文脈に合わせた解説・例文</th><th>音声</th></tr>
-                <tr><td colspan="5" style="text-align:center; color:#888;">上の抽出ボタンを押すと単語が表示されます</td></tr>
+                <tr><th>抽出された単語・チャンク</th><th>品詞 / レベル</th><th>自動生成の意味</th><th>文脈ベースの例文</th><th>音声</th></tr>
+                <tr><td colspan="5" style="text-align:center; color:#888;">上の抽出ボタンを押すと、入力された英文から自動で単語が生成されます</td></tr>
             </table>
         </div>
     </div>
@@ -223,59 +223,216 @@
 
     let currentVocabData = [];
 
-    // ②の英文から高校レベルの重要語や表現を動的に解析・抽出する関数
-    function extractVocabFromText() {
+    // 固定辞書を完全廃止し、入力された英文から動的に重要単語・イディオムを抽出して意味や解説を自動生成する関数
+    async function extractVocabFromText() {
         const text = document.getElementById('enTranslatedText').textContent;
         if (!text || text.includes("翻訳された英文がここに表示されます") || text.includes("翻訳中")) {
             alert("先にステップ②で英文を翻訳してください！");
             return;
         }
 
-        // 高校レベルの重要単語・イディオム・チャンクの知識ベース
-        const advancedDictionary = {
-            "want to": { pron: "/wɒnt tuː/", meaning: "～したいと思う", level: "高校必修", example: "I want to express my feeling." },
-            "able to": { pron: "/ˈeɪbəl tuː/", meaning: "～することができる", level: "高校必修", example: "We are able to connect with people." },
-            "try to": { pron: "/traɪ tuː/", meaning: "～しようと努力する", level: "高校必修", example: "I try to learn new words every day." },
-            "important": { pron: "/ɪmˈpɔːrtənt/", meaning: "重要な、大切な", level: "高校必修", example: "It is important to share stories." },
-            "experience": { pron: "/ɪkˈspɪriəns/", meaning: "経験、体験する", level: "高校標準", example: "It was a wonderful experience for me." },
-            "impressive": { pron: "/ɪmˈprɛsɪv/", meaning: "印象的な、感動的な", level: "高校発展", example: "His performance was very impressive." },
-            "express": { pron: "/ɪkˈsprɛs/", meaning: "表現する、述べる", level: "高校標準", example: "I want to express my thoughts clearly." },
-            "remember": { pron: "/rɪˈmɛmbər/", meaning: "覚えている、思い出す", level: "高校必修", example: "I will remember this special moment." },
-            "atmosphere": { pron: "/ˈætməsˌfɪr/", meaning: "雰囲気、空気", level: "高校発展", example: "I love the atmosphere of this place." },
-            "influence": { pron: "/ˈɪnfluəns/", meaning: "影響（を与える）", level: "高校標準", example: "His music influenced my life." },
-            "passionate": { pron: "/ˈpæʃənət/", meaning: "情熱的な、熱烈な", level: "高校発展", example: "She gave a passionate speech." },
-            "create": { pron: "/kriˈeɪt/", meaning: "創り出す、創造する", level: "高校必修", example: "We can create a better future." },
-            "wonderful": { pron: "/ˈwʌndərfəl/", meaning: "素晴らしい、見事な", level: "高校必修", example: "It is a wonderful opportunity." },
-            "remember": { pron: "/rɪˈmɛmbər/", meaning: "思い出す、心に留める", level: "高校必修", example: "I always remember your words." },
-            "recently": { pron: "/ˈriːsəntli/", meaning: "最近、近頃", level: "高校標準", example: "I watched a great movie recently." },
-            "feelings": { pron: "/ˈfiːlɪŋz/", meaning: "気持ち、感情", level: "高校必修", example: "It's hard to put my feelings into words." }
-        };
+        const table = document.getElementById('vocabTable');
+        table.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#2980b9;">🔄 英文を解析して高校レベルの重要語・チャンクを抽出中...</td></tr>`;
+
+        // 1. 英文から記号を外し、単語を抽出して3文字以上の意味のある単語をピックアップ
+        const rawWords = text.replace(/[^a-zA-Z\s]/g, "").split(/\s+/);
+        // 重複を除外し、短すぎる単語（a, an, the, to等）や一般的な代名詞をフィルタリング
+        const stopWords = new Set(["the", "a", "an", "to", "and", "or", "but", "in", "on", "at", "by", "for", "with", "is", "are", "was", "were", "be", "been", "it", "this", "that", "i", "you", "he", "she", "we", "they", "my", "your"]);
+        
+        let uniqueWords = [...new Set(rawWords.map(w => w.toLowerCase()))].filter(w => w.length >= 3 && !stopWords.has(w));
+
+        // もし単語があまり取れなかった場合の補強
+        if (uniqueWords.length === 0) {
+            uniqueWords = ["express", "feeling", "practice", "important"];
+        }
+
+        // 最大6〜8個程度に絞り込む
+        uniqueWords = uniqueWords.slice(0, 7);
 
         currentVocabData = [];
-        const lowerText = text.toLowerCase();
 
-        // 1. 辞書の中から、入力された英文に含まれているものを自動検出
-        for (let [key, info] of Object.entries(advancedDictionary)) {
-            const regex = new RegExp(`\\b${key}\\b`, 'i');
-            if (regex.test(lowerText)) {
-                currentVocabData.push({ word: key, ...info });
+        // 2. 抽出されたそれぞれの単語に対して、MyMemory API（英日翻訳）を使ってその場できれいな日本語訳と解説を自動生成する
+        for (let word of uniqueWords) {
+            try {
+                // 単語の意味をAPIで取得
+                const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ja`);
+                const json = await res.json();
+                let translatedMeaning = (json && json.responseData && json.responseData.translatedText) ? json.responseData.translatedText : "重要表現";
+                
+                // 翻訳結果が英語のまま返ってきた場合や変な場合のフォールバック
+                if (translatedMeaning.toLowerCase() === word.toLowerCase()) {
+                    translatedMeaning = "キーフレーズ";
+                }
+
+                currentVocabData.push({
+                    word: word,
+                    pron: `/${word}/`,
+                    meaning: translatedMeaning,
+                    level: word.length > 6 ? "高校発展" : "高校必修",
+                    example: `Used in context: "${text.substring(0, 60)}..."`
+                });
+            } catch (e) {
+                currentVocabData.push({
+                    word: word,
+                    pron: `/${word}/`,
+                    meaning: "重要語句",
+                    level: "高校標準",
+                    example: `Example sentence with ${word}.`
+                });
             }
         }
 
-        // 2. もし一致するものが少なければ、英文の単語から高校レベルで使える主要な単語を自動ピックアップ
-        const words = lowerText.replace(/[^a-z\s]/g, "").split(/\s+/);
-        const commonHighSchoolWords = {
-            "believe": { pron: "/bɪˈliːv/", meaning: "信じる、思う", level: "高校必修", example: "I believe we can do it." },
-            "different": { pron: "/ˈdɪfərənt/", meaning: "異なる、いろいろな", level: "高校必修", example: "Everyone has different ideas." },
-            "develop": { pron: "/dɪˈvɛləp/", meaning: "開発する、成長させる", level: "高校標準", example: "Develop your skills." },
-            "include": { pron: "/ɪnˈkluːd/", meaning: "含む、含める", level: "高校標準", example: "The plan includes many things." },
-            "support": { pron: "/səˈpɔːrt/", meaning: "支持する、応援する", level: "高校必修", example: "Thank you for your support." }
-        };
+        renderVocabTable();
+    }
 
-        for (let w of words) {
-            if (commonHighSchoolWords[w] && !currentVocabData.some(item => item.word === w)) {
-                currentVocabData.push({ word: w, ...commonHighSchoolWords[w] });
-            }
+    function renderVocabTable() {
+        const table = document.getElementById('vocabTable');
+        table.innerHTML = `<tr><th>抽出された単語・チャンク</th><th>品詞 / レベル</th><th>自動生成の意味</th><th>文脈ベースの例文</th><th>音声</th></tr>`;
+        currentVocabData.forEach(item => {
+            let row = table.insertRow();
+            row.insertCell(0).innerHTML = `<span class="hidden-spoiler" onclick="this.classList.toggle('revealed')">${item.word}</span> <span style="font-size:0.75rem; color:#e67e22; display:block;">[${item.level}]</span>`;
+            row.insertCell(1).textContent = item.pron;
+            row.insertCell(2).innerHTML = `<span class="hidden-spoiler" onclick="this.classList.toggle('revealed')">${item.meaning}</span>`;
+            row.insertCell(3).textContent = item.example;
+            let cellBtn = row.insertCell(4);
+            let btn = document.createElement('button');
+            btn.textContent = "🔊";
+            btn.style.padding = "2px 6px";
+            btn.onclick = () => {
+                let utter = new SpeechSynthesisUtterance(item.word);
+                utter.lang = 'en-US';
+                window.speechSynthesis.speak(utter);
+            };
+            cellBtn.appendChild(btn);
+        });
+    }
+
+    function toggleMode(type) {
+        const spoilers = document.querySelectorAll('.vocab-table .hidden-spoiler');
+        spoilers.forEach((el, index) => {
+            if (type === 'word' && index % 2 === 0) el.classList.toggle('revealed');
+            if (type === 'meaning' && index % 2 === 1) el.classList.toggle('revealed');
+        });
+    }
+
+    function generateA1Passage() {
+        const translatedText = document.getElementById('enTranslatedText').textContent;
+        const readingArea = document.getElementById('readingText');
+        readingArea.value = "内容をまとめてA1英文を作成中...";
+        autoResize(readingArea);
+        setTimeout(() => {
+            let baseTheme = translatedText && !translatedText.includes("翻訳された英文") ? translatedText : "wonderful music and memorable performances";
+            let slimPassage = "Today, I want to share my thoughts based on what I talked about. " +
+                "The main topic is about: " + baseTheme + ". " +
+                "Thinking about this brings strong feelings and great memories to my mind. " +
+                "Every single day, I try to spend time enjoying things that inspire me and make me feel alive. " +
+                "Having passions in our lives gives us energy and hope for the future. " +
+                "Many people around the world share similar interests, and we can connect through our shared love for great art. " +
+                "Learning English helps me express these personal thoughts and ideas more clearly. " +
+                "Even when things are difficult, listening to great music can change our mood completely. " +
+                "I want to keep practicing my English speaking and reading every day so I can share more stories. " +
+                "I believe small steps every day will lead to great progress. " +
+                "Thank you for reading this, and I hope you also enjoy learning English and sharing your wonderful stories!";
+            readingArea.value = slimPassage;
+            autoResize(readingArea);
+            updateWords();
+            updateInteractiveReadingBox(slimPassage);
+            alert("A1英文を作成しました！⑤のセクションでカーソル辞書も使えます。");
+        }, 500);
+    }
+
+    const hoverDictionary = {
+        "thoughts": "考え、思い", "topic": "話題, テーマ", "feelings": "気持ち, 感情",
+        "memories": "思い出", "inspire": "ひらめきを与える", "alive": "生きている",
+        "passions": "情熱", "energy": "エネルギー", "hope": "希望",
+        "interests": "興味、関心", "connect": "つながる", "express": "表現する",
+        "difficult": "難しい", "completely": "完全に", "progress": "進歩"
+    };
+
+    function updateInteractiveReadingBox(text) {
+        const box = document.getElementById('interactiveReadingText');
+        if (!box) return;
+        const words = text.split(/\s+/);
+        box.innerHTML = words.map(rawWord => {
+            const cleanWord = rawWord.replace(/[^a-zA-Z]/g, "").toLowerCase();
+            return hoverDictionary[cleanWord] ? 
+                `<span class="tooltip-word" data-meaning="${hoverDictionary[cleanWord]}">${rawWord}</span>` : rawWord;
+        }).join(" ");
+    }
+
+    function updateWords() {
+        const readingText = document.getElementById('readingText');
+        const wordCountSpan = document.getElementById('wordCount');
+        if (!readingText) return;
+        const text = readingText.value.trim();
+        const words = text === "" ? 0 : text.split(/\s+/).length;
+        if (wordCountSpan) wordCountSpan.textContent = words;
+        updateInteractiveReadingBox(text);
+    }
+
+    let startTime = 0;
+    function startTimer() { startTime = new Date().getTime(); alert("計測スタート！読み終わったら「計測終了」を押してください。"); }
+    function stopTimer() {
+        if (!startTime) { alert("先に計測を開始してください。"); return; }
+        let seconds = (new Date().getTime() - startTime) / 1000;
+        const wordCountSpan = document.getElementById('wordCount');
+        let words = wordCountSpan ? parseInt(wordCountSpan.textContent) : 0;
+        if (seconds > 0 && words > 0) {
+            let wpm = Math.round((words / seconds) * 60);
+            document.getElementById('wpmResult').textContent = wpm;
+            alert(`タイム: ${seconds.toFixed(1)}秒, WPM: ${wpm}`);
         }
+        startTime = 0;
+    }
 
-        // 3. それでも抽出データがない
+    const speedSlider = document.getElementById('speedSlider');
+    const speedVal = document.getElementById('speedVal');
+    if (speedSlider && speedVal) speedSlider.addEventListener('input', () => { speedVal.textContent = speedSlider.value; });
+
+    let utterance = null;
+    function speakText() {
+        const readingText = document.getElementById('readingText');
+        if (!readingText) return;
+        window.speechSynthesis.cancel();
+        utterance = new SpeechSynthesisUtterance(readingText.value);
+        utterance.lang = 'en-US';
+        utterance.rate = parseFloat(speedSlider ? speedSlider.value : 1.0);
+        window.speechSynthesis.speak(utterance);
+    }
+    function stopSpeech() { window.speechSynthesis.cancel(); }
+
+    let mediaRecorder, audioChunks = [], countdownInterval = null, timeLeft = 60, enRecognition;
+    let isRecordingActive = false, accumulatedTranscript = "";
+
+    function startEnglishRecording() {
+        if (countdownInterval) clearInterval(countdownInterval);
+        audioChunks = []; timeLeft = 60; accumulatedTranscript = ""; isRecordingActive = true;
+        document.getElementById('timerDisplay').textContent = timeLeft;
+        document.getElementById('transcriptBox').textContent = "(音声認識中...)";
+
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(audioChunks, { type: 'audio/mp3' });
+                const player = document.getElementById('audioPlayback');
+                player.src = URL.createObjectURL(blob);
+                player.style.display = 'block';
+            };
+            mediaRecorder.start();
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timerDisplay').textContent = timeLeft;
+                if (timeLeft <= 0) stopEnglishRecording();
+            }, 1000);
+            startSpeechRecognitionLoop();
+        }).catch(err => alert("マイクの許可が必要です。"));
+    }
+
+    function startSpeechRecognitionLoop() {
+        if (!isRecordingActive) return;
+        if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        enRecognition = new SpeechRecognition();
+        enRecognition.lang = 'en-US';
+        enRecognition.continuous
