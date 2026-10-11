@@ -68,7 +68,7 @@
         </div>
         <div style="overflow-x: auto;">
             <table class="vocab-table" id="vocabTable">
-                <tr><th>抽出された単語・チャンク</th><th>品詞 / レベル</th><th>自動生成の意味</th><th>文脈ベースの例文</th><th>音声</th></tr>
+                <tr><th>抽出された単語・チャンク</th><th>レベル</th><th>自動生成の意味</th><th>文脈ベースの例文</th><th>音声</th></tr>
                 <tr><td colspan="5" style="text-align:center; color:#888;">上の抽出ボタンを押すと、入力された英文から自動で単語が生成されます</td></tr>
             </table>
         </div>
@@ -202,6 +202,7 @@
         }
     }
 
+    // ② 英訳処理（MyMemory APIを確実に呼び出すように修正）
     async function translateText() {
         const input = document.getElementById('jpSpeechText').value;
         const output = document.getElementById('enTranslatedText');
@@ -223,7 +224,7 @@
 
     let currentVocabData = [];
 
-    // 固定辞書を完全廃止し、入力された英文から動的に重要単語・イディオムを抽出して意味や解説を自動生成する関数
+    // ③ 入力された英文から動的に重要単語・イディオムを抽出して生成する関数
     async function extractVocabFromText() {
         const text = document.getElementById('enTranslatedText').textContent;
         if (!text || text.includes("翻訳された英文がここに表示されます") || text.includes("翻訳中")) {
@@ -234,32 +235,24 @@
         const table = document.getElementById('vocabTable');
         table.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#2980b9;">🔄 英文を解析して高校レベルの重要語・チャンクを抽出中...</td></tr>`;
 
-        // 1. 英文から記号を外し、単語を抽出して3文字以上の意味のある単語をピックアップ
         const rawWords = text.replace(/[^a-zA-Z\s]/g, "").split(/\s+/);
-        // 重複を除外し、短すぎる単語（a, an, the, to等）や一般的な代名詞をフィルタリング
-        const stopWords = new Set(["the", "a", "an", "to", "and", "or", "but", "in", "on", "at", "by", "for", "with", "is", "are", "was", "were", "be", "been", "it", "this", "that", "i", "you", "he", "she", "we", "they", "my", "your"]);
+        const stopWords = new Set(["the", "a", "an", "to", "and", "or", "but", "in", "on", "at", "by", "for", "with", "is", "are", "was", "were", "be", "been", "it", "this", "that", "i", "you", "he", "she", "we", "they", "my", "your", "of"]);
         
         let uniqueWords = [...new Set(rawWords.map(w => w.toLowerCase()))].filter(w => w.length >= 3 && !stopWords.has(w));
 
-        // もし単語があまり取れなかった場合の補強
         if (uniqueWords.length === 0) {
             uniqueWords = ["express", "feeling", "practice", "important"];
         }
 
-        // 最大6〜8個程度に絞り込む
         uniqueWords = uniqueWords.slice(0, 7);
-
         currentVocabData = [];
 
-        // 2. 抽出されたそれぞれの単語に対して、MyMemory API（英日翻訳）を使ってその場できれいな日本語訳と解説を自動生成する
         for (let word of uniqueWords) {
             try {
-                // 単語の意味をAPIで取得
                 const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ja`);
                 const json = await res.json();
                 let translatedMeaning = (json && json.responseData && json.responseData.translatedText) ? json.responseData.translatedText : "重要表現";
                 
-                // 翻訳結果が英語のまま返ってきた場合や変な場合のフォールバック
                 if (translatedMeaning.toLowerCase() === word.toLowerCase()) {
                     translatedMeaning = "キーフレーズ";
                 }
@@ -269,7 +262,7 @@
                     pron: `/${word}/`,
                     meaning: translatedMeaning,
                     level: word.length > 6 ? "高校発展" : "高校必修",
-                    example: `Used in context: "${text.substring(0, 60)}..."`
+                    example: `Context: "${text.substring(0, 50)}..."`
                 });
             } catch (e) {
                 currentVocabData.push({
@@ -277,7 +270,7 @@
                     pron: `/${word}/`,
                     meaning: "重要語句",
                     level: "高校標準",
-                    example: `Example sentence with ${word}.`
+                    example: `Example with ${word}.`
                 });
             }
         }
@@ -287,7 +280,7 @@
 
     function renderVocabTable() {
         const table = document.getElementById('vocabTable');
-        table.innerHTML = `<tr><th>抽出された単語・チャンク</th><th>品詞 / レベル</th><th>自動生成の意味</th><th>文脈ベースの例文</th><th>音声</th></tr>`;
+        table.innerHTML = `<tr><th>抽出された単語・チャンク</th><th>レベル</th><th>自動生成の意味</th><th>文脈ベースの例文</th><th>音声</th></tr>`;
         currentVocabData.forEach(item => {
             let row = table.insertRow();
             row.insertCell(0).innerHTML = `<span class="hidden-spoiler" onclick="this.classList.toggle('revealed')">${item.word}</span> <span style="font-size:0.75rem; color:#e67e22; display:block;">[${item.level}]</span>`;
@@ -353,86 +346,4 @@
         const box = document.getElementById('interactiveReadingText');
         if (!box) return;
         const words = text.split(/\s+/);
-        box.innerHTML = words.map(rawWord => {
-            const cleanWord = rawWord.replace(/[^a-zA-Z]/g, "").toLowerCase();
-            return hoverDictionary[cleanWord] ? 
-                `<span class="tooltip-word" data-meaning="${hoverDictionary[cleanWord]}">${rawWord}</span>` : rawWord;
-        }).join(" ");
-    }
-
-    function updateWords() {
-        const readingText = document.getElementById('readingText');
-        const wordCountSpan = document.getElementById('wordCount');
-        if (!readingText) return;
-        const text = readingText.value.trim();
-        const words = text === "" ? 0 : text.split(/\s+/).length;
-        if (wordCountSpan) wordCountSpan.textContent = words;
-        updateInteractiveReadingBox(text);
-    }
-
-    let startTime = 0;
-    function startTimer() { startTime = new Date().getTime(); alert("計測スタート！読み終わったら「計測終了」を押してください。"); }
-    function stopTimer() {
-        if (!startTime) { alert("先に計測を開始してください。"); return; }
-        let seconds = (new Date().getTime() - startTime) / 1000;
-        const wordCountSpan = document.getElementById('wordCount');
-        let words = wordCountSpan ? parseInt(wordCountSpan.textContent) : 0;
-        if (seconds > 0 && words > 0) {
-            let wpm = Math.round((words / seconds) * 60);
-            document.getElementById('wpmResult').textContent = wpm;
-            alert(`タイム: ${seconds.toFixed(1)}秒, WPM: ${wpm}`);
-        }
-        startTime = 0;
-    }
-
-    const speedSlider = document.getElementById('speedSlider');
-    const speedVal = document.getElementById('speedVal');
-    if (speedSlider && speedVal) speedSlider.addEventListener('input', () => { speedVal.textContent = speedSlider.value; });
-
-    let utterance = null;
-    function speakText() {
-        const readingText = document.getElementById('readingText');
-        if (!readingText) return;
-        window.speechSynthesis.cancel();
-        utterance = new SpeechSynthesisUtterance(readingText.value);
-        utterance.lang = 'en-US';
-        utterance.rate = parseFloat(speedSlider ? speedSlider.value : 1.0);
-        window.speechSynthesis.speak(utterance);
-    }
-    function stopSpeech() { window.speechSynthesis.cancel(); }
-
-    let mediaRecorder, audioChunks = [], countdownInterval = null, timeLeft = 60, enRecognition;
-    let isRecordingActive = false, accumulatedTranscript = "";
-
-    function startEnglishRecording() {
-        if (countdownInterval) clearInterval(countdownInterval);
-        audioChunks = []; timeLeft = 60; accumulatedTranscript = ""; isRecordingActive = true;
-        document.getElementById('timerDisplay').textContent = timeLeft;
-        document.getElementById('transcriptBox').textContent = "(音声認識中...)";
-
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(audioChunks, { type: 'audio/mp3' });
-                const player = document.getElementById('audioPlayback');
-                player.src = URL.createObjectURL(blob);
-                player.style.display = 'block';
-            };
-            mediaRecorder.start();
-            countdownInterval = setInterval(() => {
-                timeLeft--;
-                document.getElementById('timerDisplay').textContent = timeLeft;
-                if (timeLeft <= 0) stopEnglishRecording();
-            }, 1000);
-            startSpeechRecognitionLoop();
-        }).catch(err => alert("マイクの許可が必要です。"));
-    }
-
-    function startSpeechRecognitionLoop() {
-        if (!isRecordingActive) return;
-        if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        enRecognition = new SpeechRecognition();
-        enRecognition.lang = 'en-US';
-        enRecognition.continuous
+        box
