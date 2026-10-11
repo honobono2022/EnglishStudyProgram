@@ -61,14 +61,14 @@
     <!-- ③ 重要単語・言い回し -->
     <div class="step-card">
         <h3>③ 実用的な重要単語・言い回しと暗記トレーニング</h3>
-        <button onclick="extractVocabFromText()">🔍 実践的な単語と例文を抽出する</button>
+        <button onclick="extractVocabFromText()">🔍 英文から高校レベル重要単語・チャンクを抽出する</button>
         <div style="margin: 10px 0;">
             <button class="toggle-btn" onclick="toggleMode('meaning')">💡 意味を隠す / 表示</button>
             <button class="toggle-btn" onclick="toggleMode('word')">🔤 英語を隠す / 表示</button>
         </div>
         <div style="overflow-x: auto;">
             <table class="vocab-table" id="vocabTable">
-                <tr><th>英語</th><th>発音</th><th>意味</th><th>短い例文</th><th>音声</th></tr>
+                <tr><th>英語・チャンク</th><th>発音</th><th>意味</th><th>文脈に合わせた解説・例文</th><th>音声</th></tr>
                 <tr><td colspan="5" style="text-align:center; color:#888;">上の抽出ボタンを押すと単語が表示されます</td></tr>
             </table>
         </div>
@@ -222,6 +222,8 @@
     }
 
     let currentVocabData = [];
+
+    // ②の英文から高校レベルの重要語や表現を動的に解析・抽出する関数
     function extractVocabFromText() {
         const text = document.getElementById('enTranslatedText').textContent;
         if (!text || text.includes("翻訳された英文がここに表示されます") || text.includes("翻訳中")) {
@@ -229,103 +231,51 @@
             return;
         }
 
-        // 多彩なジャンルの重要英単語データベース
-        const globalDictionary = {
-            "movie": { pron: "/ˈmuːvi/", meaning: "映画", example: "I watched a great movie yesterday." },
-            "film": { pron: "/fɪlm/", meaning: "映画、フィルム", example: "This film won many awards." },
-            "music": { pron: "/ˈmjuːzɪk/", meaning: "音楽", example: "Listen to relaxing music." },
-            "song": { pron: "/sɔːŋ/", meaning: "歌、曲", example: "She sang a beautiful song." },
-            "singer": { pron: "/ˈsɪŋər/", meaning: "歌手", example: "He is a famous singer." },
-            "dance": { pron: "/dæns/", meaning: "ダンス、踊る", example: "They love to dance together." },
-            "actor": { pron: "/ˈæktər/", meaning: "俳優", example: "He is a talented actor." },
-            "performance": { pron: /pərˈfɔːrməns/, meaning: "パフォーマンス、演技", example: "It was an amazing performance." },
-            "story": { pron: "/ˈstɔːri/", meaning: "物語、話", example: "The story made me cry." },
-            "feelings": { pron: "/ˈfiːlɪŋz/", meaning: "気持ち、感情", example: "I cannot hide my true feelings." },
-            "love": { pron: "/lʌv/", meaning: "愛、愛する", example: "Love is patient and kind." },
-            "peace": { pron: "/piːs/", meaning: "平和", example: "We all want world peace." },
-            "hope": { pron: "/hoʊp/", meaning: "希望", example: "Never lose hope." },
-            "time": { pron: "/taɪm/", meaning: "時間", example: "Time flies so fast." },
-            "life": { pron: "/laɪf/", meaning: "人生、生活", example: "Enjoy your life to the fullest." },
-            "world": { pron: /wɜːrld/, meaning: "世界", example: "Travel around the world." },
-            "people": { pron: "/ˈpiːpəl/", meaning: "人々", example: "Many people gathered here." },
-            "friend": { pron: "/frɛnd/", meaning: "友達", example: "She is my best friend." },
-            "happy": { pron: "/ˈhæpi/", meaning: "嬉しい、幸せな", example: "I am very happy today." },
-            "wonderful": { pron: "/ˈwʌndərfəl/", meaning: "素晴らしい", example: "What a wonderful day!" },
-            "beautiful": { pron: "/ˈbjuːtɪfəl/", meaning: "美しい", example: "The sunset was beautiful." },
-            "great": { pron: "/greɪt/", meaning: "すごい、偉大な", example: "That is a great idea." },
-            "important": { pron: "/ɪmˈpɔːrtənt/", meaning: "重要な", example: "Health is important." },
-            "remember": { pron: "/rɪˈmɛmbər/", meaning: "覚えている、思い出す", example: "I remember that day." },
-            "create": { pron: "/kriˈeɪt/", meaning: "創る、作成する", example: "Create your own future." },
-            "express": { pron: "/ɪkˈsprɛs/", meaning: "表現する", example:daq => "Express your feelings freely." },
-            "impressive": { pron: "/ɪmˈprɛsɪv/", meaning: "印象的な", example: "It was an impressive show." },
-            "recently": { pron: "/ˈriːsəntli/", meaning: "最近", example: "I started learning English recently." },
-            "experience": { pron: "/ɪkˈspɪriəns/", meaning: "経験", example: "It was a valuable experience." }
+        // 高校レベルの重要単語・イディオム・チャンクの知識ベース
+        const advancedDictionary = {
+            "want to": { pron: "/wɒnt tuː/", meaning: "～したいと思う", level: "高校必修", example: "I want to express my feeling." },
+            "able to": { pron: "/ˈeɪbəl tuː/", meaning: "～することができる", level: "高校必修", example: "We are able to connect with people." },
+            "try to": { pron: "/traɪ tuː/", meaning: "～しようと努力する", level: "高校必修", example: "I try to learn new words every day." },
+            "important": { pron: "/ɪmˈpɔːrtənt/", meaning: "重要な、大切な", level: "高校必修", example: "It is important to share stories." },
+            "experience": { pron: "/ɪkˈspɪriəns/", meaning: "経験、体験する", level: "高校標準", example: "It was a wonderful experience for me." },
+            "impressive": { pron: "/ɪmˈprɛsɪv/", meaning: "印象的な、感動的な", level: "高校発展", example: "His performance was very impressive." },
+            "express": { pron: "/ɪkˈsprɛs/", meaning: "表現する、述べる", level: "高校標準", example: "I want to express my thoughts clearly." },
+            "remember": { pron: "/rɪˈmɛmbər/", meaning: "覚えている、思い出す", level: "高校必修", example: "I will remember this special moment." },
+            "atmosphere": { pron: "/ˈætməsˌfɪr/", meaning: "雰囲気、空気", level: "高校発展", example: "I love the atmosphere of this place." },
+            "influence": { pron: "/ˈɪnfluəns/", meaning: "影響（を与える）", level: "高校標準", example: "His music influenced my life." },
+            "passionate": { pron: "/ˈpæʃənət/", meaning: "情熱的な、熱烈な", level: "高校発展", example: "She gave a passionate speech." },
+            "create": { pron: "/kriˈeɪt/", meaning: "創り出す、創造する", level: "高校必修", example: "We can create a better future." },
+            "wonderful": { pron: "/ˈwʌndərfəl/", meaning: "素晴らしい、見事な", level: "高校必修", example: "It is a wonderful opportunity." },
+            "remember": { pron: "/rɪˈmɛmbər/", meaning: "思い出す、心に留める", level: "高校必修", example: "I always remember your words." },
+            "recently": { pron: "/ˈriːsəntli/", meaning: "最近、近頃", level: "高校標準", example: "I watched a great movie recently." },
+            "feelings": { pron: "/ˈfiːlɪŋz/", meaning: "気持ち、感情", level: "高校必修", example: "It's hard to put my feelings into words." }
         };
 
         currentVocabData = [];
         const lowerText = text.toLowerCase();
-        
-        // ②の英文に含まれている単語を辞書から自動検出して抽出する
-        for (let [word, info] of Object.entries(globalDictionary)) {
-            // 単語単位での一致をチェック
-            const regex = new RegExp(`\\b${word}\\b`, 'i');
+
+        // 1. 辞書の中から、入力された英文に含まれているものを自動検出
+        for (let [key, info] of Object.entries(advancedDictionary)) {
+            const regex = new RegExp(`\\b${key}\\b`, 'i');
             if (regex.test(lowerText)) {
-                currentVocabData.push({ word, ...info });
+                currentVocabData.push({ word: key, ...info });
             }
         }
 
-        // もし一致する単語が少なすぎた場合は、英文に含まれる主要な単語を追加するか、最低限の関連単語を表示する
-        if (currentVocabData.length === 0) {
-            // 英文中の最初のいくつかの単語を拾うなどしてフォールバック
-            currentVocabData.push({ word: "learn", pron: "/lɜːrn/", meaning: "学ぶ", example: "I want to learn English." });
-            currentVocabData.push({ word: "study", pron: "/ˈstʌdi/", meaning: "勉強する", example: "Study hard every day." });
+        // 2. もし一致するものが少なければ、英文の単語から高校レベルで使える主要な単語を自動ピックアップ
+        const words = lowerText.replace(/[^a-z\s]/g, "").split(/\s+/);
+        const commonHighSchoolWords = {
+            "believe": { pron: "/bɪˈliːv/", meaning: "信じる、思う", level: "高校必修", example: "I believe we can do it." },
+            "different": { pron: "/ˈdɪfərənt/", meaning: "異なる、いろいろな", level: "高校必修", example: "Everyone has different ideas." },
+            "develop": { pron: "/dɪˈvɛləp/", meaning: "開発する、成長させる", level: "高校標準", example: "Develop your skills." },
+            "include": { pron: "/ɪnˈkluːd/", meaning: "含む、含める", level: "高校標準", example: "The plan includes many things." },
+            "support": { pron: "/səˈpɔːrt/", meaning: "支持する、応援する", level: "高校必修", example: "Thank you for your support." }
+        };
+
+        for (let w of words) {
+            if (commonHighSchoolWords[w] && !currentVocabData.some(item => item.word === w)) {
+                currentVocabData.push({ word: w, ...commonHighSchoolWords[w] });
+            }
         }
 
-        renderVocabTable();
-    }
-
-    function renderVocabTable() {
-        const table = document.getElementById('vocabTable');
-        table.innerHTML = `<tr><th>英語</th><th>発音</th><th>意味</th><th>短い例文</th><th>音声</th></tr>`;
-        currentVocabData.forEach(item => {
-            let row = table.insertRow();
-            row.insertCell(0).innerHTML = `<span class="hidden-spoiler" onclick="this.classList.toggle('revealed')">${item.word}</span>`;
-            row.insertCell(1).textContent = item.pron;
-            row.insertCell(2).innerHTML = `<span class="hidden-spoiler" onclick="this.classList.toggle('revealed')">${item.meaning}</span>`;
-            // exampleが関数の場合の保険
-            let exText = typeof item.example === 'function' ? item.example() : item.example;
-            row.insertCell(3).textContent = exText;
-            let cellBtn = row.insertCell(4);
-            let btn = document.createElement('button');
-            btn.textContent = "🔊";
-            btn.style.padding = "2px 6px";
-            btn.onclick = () => {
-                let utter = new SpeechSynthesisUtterance(item.word);
-                utter.lang = 'en-US';
-                window.speechSynthesis.speak(utter);
-            };
-            cellBtn.appendChild(btn);
-        });
-    }
-
-    function toggleMode(type) {
-        const spoilers = document.querySelectorAll('.vocab-table .hidden-spoiler');
-        spoilers.forEach((el, index) => {
-            if (type === 'word' && index % 2 === 0) el.classList.toggle('revealed');
-            if (type === 'meaning' && index % 2 === 1) el.classList.toggle('revealed');
-        });
-    }
-
-    function generateA1Passage() {
-        const translatedText = document.getElementById('enTranslatedText').textContent;
-        const readingArea = document.getElementById('readingText');
-        readingArea.value = "内容をまとめてA1英文を作成中...";
-        autoResize(readingArea);
-        setTimeout(() => {
-            let baseTheme = translatedText && !translatedText.includes("翻訳された英文") ? translatedText : "wonderful music and memorable performances";
-            let slimPassage = "Today, I want to share my thoughts based on what I talked about. " +
-                "The main topic is about: " + baseTheme + ". " +
-                "Thinking about this brings strong feelings and great memories to my mind. " +
-                "Every single day, I try to spend time enjoying things that inspire me and make me feel alive. " +
-                "Having passions in our lives gives us energy and hope for the future. " +
-                "Many people around the world share similar interests, and we can connect through
+        // 3. それでも抽出データがない
