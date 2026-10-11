@@ -10,7 +10,7 @@
         .schedule-banner { background: #e8f4fd; border: 1px solid #bbe1fa; padding: 10px 15px; border-radius: 8px; text-align: center; font-weight: bold; color: #0277bd; margin-bottom: 20px; font-size: 0.95rem; }
         .step-card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; border-left: 5px solid #3498db; }
         .step-card h3 { margin-top: 0; color: #2980b9; font-size: 1.1rem; }
-        textarea, input[type="file"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95rem; box-sizing: border-box; resize: vertical; margin-top: 8px; }
+        textarea, input[type="file"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95rem; box-sizing: border-box; resize: none; margin-top: 8px; overflow-y: hidden; }
         button { background: #3498db; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-size: 0.9rem; cursor: pointer; margin: 5px 5px 5px 0; font-weight: bold; }
         button:hover { background: #2980b9; }
         button.stop { background: #e74c3c; }
@@ -41,14 +41,14 @@
 <body>
 
     <h1>🌟 マイ・パーソナル英語上達アプリ</h1>
-    <div class="schedule-banner" id="scheduleBanner">📅 読み込み中...</div>
+    <div class="schedule-banner" id="scheduleBanner">📅 学習開始日: 2026年10月11日 ｜ 本日は学習 <b>2日目</b> です！</div>
 
     <!-- ① 日本語音声スピーチ -->
     <div class="step-card">
         <h3>① 日本語で話したいことを話す（音声文字起こし）</h3>
         <button onclick="startJapaneseSpeech()" class="record">🎙 日本語録音・文字起こし開始</button>
         <button onclick="stopJapaneseSpeech()" class="stop">⏹ 停止</button>
-        <textarea id="jpSpeechText" placeholder="ここに話した日本語が文字起こしされます..."></textarea>
+        <textarea id="jpSpeechText" oninput="autoResize(this)" placeholder="ここに話した日本語が文字起こしされます..."></textarea>
     </div>
 
     <!-- ② 英訳 -->
@@ -78,7 +78,7 @@
     <div class="step-card">
         <h3>④ A1レベル英文作成 ＆ リーディング測定</h3>
         <button onclick="generateA1Passage()" class="generate">✨ 話した内容からスリムなA1英文を作成する</button>
-        <textarea id="readingText">"Heal the World" is a very famous song. It is about peace, love, and hope for all people on Earth. We can make the world a better place together.</textarea>
+        <textarea id="readingText" oninput="autoResize(this)">"Heal the World" is a very famous song. It is about peace, love, and hope for all people on Earth. We can make the world a better place together.</textarea>
         <div class="stats">
             <span>単語数: <span id="wordCount">0</span> words</span>
             <span>WPM: <span id="wpmResult">0</span></span>
@@ -124,40 +124,45 @@
     </div>
 
 <script>
-    let startDateStr = "2026-10-11";
-    let currentDayNum = 2;
+    const startDateStr = "2026-10-11";
+    const currentDayNum = 2;
 
     window.onload = function() {
-        initSchedule();
-        updateWords();
-        refreshSpeechSection();
+        try {
+            updateWords();
+            refreshSpeechSection();
+            // 初期表示時にもテキストエリアの高さを自動調整
+            document.querySelectorAll('textarea').forEach(el => autoResize(el));
+        } catch (e) {
+            console.error(e);
+        }
     };
 
-    function initSchedule() {
-        const startD = new Date(startDateStr);
-        const today = new Date();
-        // 日数の差分を計算（10月11日始点で10月12日なら2日目になるよう調整）
-        const diffTime = today.setHours(0,0,0,0) - startD.setHours(0,0,0,0);
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        currentDayNum = diffDays > 0 ? diffDays : 2;
-        
-        const formattedStartDate = startD.getFullYear() + "年" + (startD.getMonth() + 1) + "月" + startD.getDate() + "日";
-        document.getElementById('scheduleBanner').innerHTML = `📅 学習開始日: ${formattedStartDate} ｜ 本日は学習 <b>${currentDayNum}日目</b> です！`;
+    // テキストエリアの文字数に応じて高さを自動伸縮する関数
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = (textarea.scrollHeight) + 'px';
     }
 
     function refreshSpeechSection() {
-        document.getElementById('transcriptBox').textContent = "(英語の文字起こし結果がここに表示されます)";
+        const tBox = document.getElementById('transcriptBox');
+        if (tBox) tBox.textContent = "(英語の文字起こし結果がここに表示されます)";
         const player = document.getElementById('audioPlayback');
-        player.src = "";
-        player.style.display = 'none';
-        document.getElementById('timerDisplay').textContent = "60";
+        if (player) {
+            player.src = "";
+            player.style.display = 'none';
+        }
+        const tDisplay = document.getElementById('timerDisplay');
+        if (tDisplay) tDisplay.textContent = "60";
     }
 
     let jpRecognition;
+    let isJpRecordingActive = false;
+
     function startJapaneseSpeech() {
         const txt = document.getElementById('jpSpeechText');
         if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-            alert("お使いのブラウザは音声認識に対応していません。");
+            alert("お使いのブラウザは音声認識に対応していません。Safariでお試しください。");
             return;
         }
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -165,17 +170,40 @@
         jpRecognition.lang = 'ja-JP';
         jpRecognition.interimResults = true;
         jpRecognition.continuous = true;
+        isJpRecordingActive = true;
+
         jpRecognition.onresult = (event) => {
             let final = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
                 if (event.results[i].isFinal) final += event.results[i][0].transcript;
             }
-            if (final) txt.value += final + "\n";
+            if (final) {
+                txt.value += final + "\n";
+                autoResize(txt);
+            }
         };
-        jpRecognition.start();
-        alert("日本語の音声認識を開始しました。お話しください。");
+
+        // スマホで途中で切れた場合に自動で再接続する処理
+        jpRecognition.onend = () => {
+            if (isJpRecordingActive) {
+                try { jpRecognition.start(); } catch (e) {}
+            }
+        };
+
+        try {
+            jpRecognition.start();
+            alert("日本語の音声認識を開始しました。お話しください。");
+        } catch (e) {
+            alert("音声認識の開始に失敗しました。もう一度お試しください。");
+        }
     }
-    function stopJapaneseSpeech() { if (jpRecognition) jpRecognition.stop(); }
+
+    function stopJapaneseSpeech() {
+        isJpRecordingActive = false;
+        if (jpRecognition) {
+            try { jpRecognition.abort(); } catch(e) {}
+        }
+    }
 
     async function translateText() {
         const input = document.getElementById('jpSpeechText').value;
@@ -216,7 +244,7 @@
             "masterpiece": { pron: "/ˈmæstərˌpiːs/", meaning: "傑作、名作", example: "This song is an absolute masterpiece." },
             "memorable": { pron: "/ˈmɛmərəbəl/", meaning: "記憶に残る", example: "It was a memorable experience." },
             "passionate": { pron: "/ˈpæʃənət/", meaning: "情熱的な", example: "He gave a passionate speech." },
-            "influence": { pron: "/ˈɪnfluəns/", meaning: "影響（を与える）", example: "He influenced millions of people." },
+            "influence": { pron: "/ˈnfluəns/", meaning: "影響（を与える）", example: "He influenced millions of people." },
             "legendary": { pron: "/lɛdʒənˈdɛri/", meaning: "伝説的な", example: "He is a legendary entertainer." },
             "emotion": { pron: "/ɪˈmoʊʃən/", meaning: "感情、感動", example: "His music is full of emotion." }
         };
@@ -267,6 +295,7 @@
         const translatedText = document.getElementById('enTranslatedText').textContent;
         const readingArea = document.getElementById('readingText');
         readingArea.value = "内容をまとめてA1英文を作成中...";
+        autoResize(readingArea);
         setTimeout(() => {
             let baseTheme = translatedText && !translatedText.includes("翻訳された英文") ? translatedText : "wonderful music and memorable performances";
             let slimPassage = "Today, I want to share my thoughts based on what I talked about. " +
@@ -281,6 +310,7 @@
                 "I believe small steps every day will lead to great progress. " +
                 "Thank you for reading this, and I hope you also enjoy learning English and sharing your wonderful stories!";
             readingArea.value = slimPassage;
+            autoResize(readingArea);
             updateWords();
             updateInteractiveReadingBox(slimPassage);
             alert("A1英文を作成しました！⑤のセクションでカーソル辞書も使えます。");
@@ -306,23 +336,23 @@
         }).join(" ");
     }
 
-    const readingText = document.getElementById('readingText');
-    const wordCountSpan = document.getElementById('wordCount');
     function updateWords() {
+        const readingText = document.getElementById('readingText');
+        const wordCountSpan = document.getElementById('wordCount');
         if (!readingText) return;
         const text = readingText.value.trim();
         const words = text === "" ? 0 : text.split(/\s+/).length;
         if (wordCountSpan) wordCountSpan.textContent = words;
         updateInteractiveReadingBox(text);
     }
-    if (readingText) readingText.addEventListener('input', updateWords);
 
     let startTime = 0;
     function startTimer() { startTime = new Date().getTime(); alert("計測スタート！読み終わったら「計測終了」を押してください。"); }
     function stopTimer() {
         if (!startTime) { alert("先に計測を開始してください。"); return; }
         let seconds = (new Date().getTime() - startTime) / 1000;
-        let words = parseInt(wordCountSpan.textContent);
+        const wordCountSpan = document.getElementById('wordCount');
+        let words = wordCountSpan ? parseInt(wordCountSpan.textContent) : 0;
         if (seconds > 0 && words > 0) {
             let wpm = Math.round((words / seconds) * 60);
             document.getElementById('wpmResult').textContent = wpm;
@@ -337,6 +367,8 @@
 
     let utterance = null;
     function speakText() {
+        const readingText = document.getElementById('readingText');
+        if (!readingText) return;
         window.speechSynthesis.cancel();
         utterance = new SpeechSynthesisUtterance(readingText.value);
         utterance.lang = 'en-US';
@@ -446,13 +478,17 @@
             try {
                 const data = JSON.parse(e.target.result);
                 if (data.jpText !== undefined) {
-                    document.getElementById('jpSpeechText').value = data.jpText;
+                    const jpBox = document.getElementById('jpSpeechText');
+                    jpBox.value = data.jpText;
+                    autoResize(jpBox);
                 }
                 if (data.enText !== undefined) {
                     document.getElementById('enTranslatedText').textContent = data.enText;
                 }
                 if (data.readingText !== undefined) {
-                    document.getElementById('readingText').value = data.readingText;
+                    const readingBox = document.getElementById('readingText');
+                    readingBox.value = data.readingText;
+                    autoResize(readingBox);
                     updateWords();
                 }
                 alert("過去の学習データを正常に読み込みました！");
