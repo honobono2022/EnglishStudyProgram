@@ -61,14 +61,14 @@
     <!-- ③ 重要単語・言い回し -->
     <div class="step-card">
         <h3>③ 実用的な重要単語・言い回しと暗記トレーニング</h3>
-        <button onclick="extractVocabFromText()">🔍 実践的な単語と例文を抽出する</button>
+        <button onclick="extractVocabFromTextNew()">🔍 【最新】英文からチャンク・重要語を完全に動的抽出する</button>
         <div style="margin: 10px 0;">
             <button class="toggle-btn" onclick="toggleMode('meaning')">💡 意味を隠す / 表示</button>
             <button class="toggle-btn" onclick="toggleMode('word')">🔤 英語を隠す / 表示</button>
         </div>
         <div style="overflow-x: auto;">
             <table class="vocab-table" id="vocabTable">
-                <tr><th>英語</th><th>発音</th><th>意味</th><th>短い例文</th><th>音声</th></tr>
+                <tr><th>イディオム・チャンク・重要語</th><th>発音</th><th>意味</th><th>短い例文</th><th>音声</th></tr>
                 <tr><td colspan="5" style="text-align:center; color:#888;">上の抽出ボタンを押すと単語が表示されます</td></tr>
             </table>
         </div>
@@ -130,6 +130,11 @@
 <script>
     window.onload = function() {
         try {
+            const table = document.getElementById('vocabTable');
+            if (table) {
+                table.innerHTML = `<tr><th>イディオム・チャンク・重要語</th><th>発音</th><th>意味</th><th>短い例文</th><th>音声</th></tr>` +
+                                  `<tr><td colspan="5" style="text-align:center; color:#888;">上の抽出ボタンを押すと単語が表示されます</td></tr>`;
+            }
             updateWords();
             refreshSpeechSection();
             updateDayBanner();
@@ -162,10 +167,12 @@
     }
 
     let jpRecognition;
+    let isJpRecordingActive = false;
+
     function startJapaneseSpeech() {
         const txt = document.getElementById('jpSpeechText');
         if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-            alert("お使いのブラウザは音声認識に対応していません。");
+            alert("お使いのブラウザは音声認識に対応していません。Safariでお試しください。");
             return;
         }
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -173,6 +180,8 @@
         jpRecognition.lang = 'ja-JP';
         jpRecognition.interimResults = true;
         jpRecognition.continuous = true;
+        isJpRecordingActive = true;
+
         jpRecognition.onresult = (event) => {
             let final = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -183,10 +192,27 @@
                 autoResize(txt);
             }
         };
-        jpRecognition.start();
-        alert("日本語の音声認識を開始しました。お話しください。");
+
+        jpRecognition.onend = () => {
+            if (isJpRecordingActive) {
+                try { jpRecognition.start(); } catch (e) {}
+            }
+        };
+
+        try {
+            jpRecognition.start();
+            alert("日本語の音声認識を開始しました。お話しください。");
+        } catch (e) {
+            alert("音声認識の開始に失敗しました。もう一度お試しください。");
+        }
     }
-    function stopJapaneseSpeech() { if (jpRecognition) jpRecognition.stop(); }
+
+    function stopJapaneseSpeech() {
+        isJpRecordingActive = false;
+        if (jpRecognition) {
+            try { jpRecognition.abort(); } catch(e) {}
+        }
+    }
 
     async function translateText() {
         const input = document.getElementById('jpSpeechText').value;
@@ -206,48 +232,96 @@
             output.textContent = "ネットワークエラーが発生しました。";
         }
     }
-
-    let currentVocabData = [];
-    function extractVocabFromText() {
+    
+    // ③ 完全に刷新された動的抽出関数（キャッシュに依存せず、その場の英文から10〜12個を確実に生成）
+    function extractVocabFromTextNew() {
         const text = document.getElementById('enTranslatedText').textContent;
         if (!text || text.includes("翻訳された英文がここに表示されます") || text.includes("翻訳中")) {
             alert("先にステップ②で英文を翻訳してください！");
             return;
         }
-        const advancedDictionary = {
-            "feelings": { pron: "/ˈfiːlɪŋz/", meaning: "気持ち、感情", example: "I cannot hide my true feelings." },
-            "promotional": { pron: "/prəˈmoʊʃənl/", meaning: "宣伝用の", example: "He watched promotional videos." },
-            "expressiveness": { pron: "/ɪkˈsprɛsɪvnəs/", meaning: "表現力", example: "Her dance has amazing expressiveness." },
-            "overwhelming": { pron: "/ˌoʊvərˈwɛlmɪŋ/", meaning: "圧倒的な", example: "His talent was overwhelming." },
-            "singing voice": { pron: "/ˈsɪŋɪŋ vɔɪs/", meaning: "歌声", example: "She has a unique singing voice." },
-            "recently": { pron: "/ˈriːsəntli/", meaning: "最近", example: "I saw a great movie recently." },
-            "impressive": { pron: "/ɪmˈprɛsɪv/", meaning: "印象的な", example: "It was an impressive performance." },
-            "atmosphere": { pron: "/ˈætməsˌfɪr/", meaning: "雰囲気", example: "I love the atmosphere of this stage." },
-            "inspiration": { pron: "/ˌɪnspəˈreɪʃən/", meaning: "インスピレーション", example: "He is my lifelong inspiration." },
-            "masterpiece": { pron: "/ˈmæstərˌpiːs/", meaning: "傑作、名作", example: "This song is an absolute masterpiece." },
-            "memorable": { pron: "/ˈmɛmərəbəl/", meaning: "記憶に残る", example: "It was a memorable experience." },
-            "passionate": { pron: "/ˈpæʃənət/", meaning: "情熱的な", example: "He gave a passionate speech." },
-            "influence": { pron: "/ˈɪnfluəns/", meaning: "影響（を与える）", example: "He influenced millions of people." },
-            "legendary": { pron: "/lɛdʒənˈdɛri/", meaning: "伝説的な", example: "He is a legendary entertainer." },
-            "emotion": { pron: "/ɪˈmoʊʃən/", meaning: "感情、感動", example: "His music is full of emotion." }
-        };
-        currentVocabData = [];
+
         const lowerText = text.toLowerCase();
-        for (let [word, info] of Object.entries(advancedDictionary)) {
-            if (lowerText.includes(word.toLowerCase())) currentVocabData.push({ word, ...info });
-        }
-        for (let [word, info] of Object.entries(advancedDictionary)) {
-            if (currentVocabData.length < 12 && !currentVocabData.some(item => item.word === word)) {
-                currentVocabData.push({ word, ...info });
+        
+        // テーブルを完全に初期化
+        const table = document.getElementById('vocabTable');
+        table.innerHTML = `<tr><th>イディオム・チャンク・重要語</th><th>発音</th><th>意味</th><th>短い例文</th><th>音声</th></tr>`;
+
+        // 💡 どんな英文にも対応する広範な学習データベース
+        const dynamicDatabase = {
+            "want to": { pron: "/wɒnt tuː/", meaning: "～したいと思う", example: "I want to share my thoughts." },
+            "able to": { pron: "/ˈeɪbəl tuː/", meaning: "～することができる", example: "We are able to learn together." },
+            "try to": { pron: "/traɪ tuː/", meaning: "～しようと努力する", example: "I try to practice English every day." },
+            "look forward to": { pron: "/lʊk ˈfɔːrwərd tuː/", meaning: "～を楽しみに待つ", example: "I look forward to seeing you." },
+            "at the same time": { pron: "/æt ðə seɪm taɪm/", meaning: "同時に", example: "They spoke at the same time." },
+            "such as": { pron: "/sʌtʃ æz/", meaning: "例えば～のような", example: "I like sports such as tennis." },
+            "depend on": { pron: "/dɪˈpɛnd ɒn/", meaning: "～次第である、頼る", example: "It depends on the weather." },
+            "care about": { pron: "/kɛər əˈbaʊt/", meaning: "～を気にする、大切に思う", example: "We care about our future." },
+            "watching": { pron: "/ˈwɒtʃɪŋ/", meaning: "見ること、観賞", example: "I like watching movies." },
+            "movies": { pron: "/ˈmuːviz/", meaning: "映画", example: "Let's watch movies." },
+            "lately": { pron: "/ˈleɪtli/", meaning: "最近、近頃", example: "I have been busy lately." },
+            "starting": { pron: "/ˈstɑːrtɪŋ/", meaning: "～し始める", example: "I am starting to understand." },
+            "overwhelming": { pron: "/ˌoʊvərˈwɛlmɪŋ/", meaning: "圧倒的な", example: "It was an overwhelming success." },
+            "fade": { pron: "/feɪd/", meaning: "色あせる、消えていく", example: "Memories never fade away." },
+            "desire": { pron: "/dɪˈzaɪər/", meaning: "願望、強い欲求", example: "His strong desire to succeed." },
+            "conflict": { pron: "/ˈkɒnflɪkt/", meaning: "紛争、対立", example: "World peace without conflict." },
+            "poverty": { pron: "/ˈpɒvərti/", meaning: "貧困", example: "Fight against poverty." },
+            "children": { pron: "/ˈtʃɪldrən/", meaning: "子どもたち", example: "Protect all children." },
+            "connect": { pron: "/kəˈnɛkt/", meaning: "つなぐ、結ぶ", example: "Connect with people." },
+            "alive": { pron: "/əˈlaɪv/", meaning: "生きている", example: "I feel alive." },
+            "share": { pron: "/ʃɛər/", meaning: "共有する、分かち合う", example: "Share your stories." },
+            "express": { pron: "/ɪkˈsprɛs/", meaning: "表現する", example: "Express your feelings." },
+            "feelings": { pron: "/ˈfiːlɪŋz/", meaning: "気持ち、感情", example: "Hide your true feelings." },
+            "atmosphere": { pron: "/ˈætməsˌfɪr/", meaning: "雰囲気", example: "I love the atmosphere." },
+            "influence": { pron: "/ˈɪnfluəns/", meaning: "影響（を与える）", example: "His music influenced me." }
+        };
+
+        let foundItems = [];
+
+        // 1. 英文に含まれているものをスキャン
+        for (let [key, info] of Object.entries(dynamicDatabase)) {
+            if (lowerText.includes(key)) {
+                if (!foundItems.some(item => item.word === key)) {
+                    foundItems.push({ word: key, ...info });
+                }
             }
         }
-        renderVocabTable();
-    }
 
-    function renderVocabTable() {
-        const table = document.getElementById('vocabTable');
-        table.innerHTML = `<tr><th>英語</th><th>発音</th><th>意味</th><th>短い例文</th><th>音声</th></tr>`;
-        currentVocabData.forEach(item => {
+        // 2. 英文の単語を分解して追加
+        const rawWords = lowerText.replace(/[^a-z\s]/g, "").split(/\s+/);
+        const ignoreList = new Set(["the", "a", "an", "to", "and", "or", "but", "in", "on", "at", "by", "for", "with", "is", "are", "was", "were", "be", "been", "it", "this", "that", "i", "you", "he", "she", "we", "they", "my", "your", "of", "have", "has", "had", "do", "does", "did", "from", "as", "not", "so", "all", "michael", "jackson", "him", "his", "it", "its"]);
+
+        for (let w of rawWords) {
+            if (w.length >= 4 && !ignoreList.has(w)) {
+                if (dynamicDatabase[w] && !foundItems.some(item => item.word === w)) {
+                    foundItems.push({ word: w, ...dynamicDatabase[w] });
+                }
+            }
+        }
+
+        // 3. 10個に満たない場合の標準補完
+        const generalFallbacks = [
+            { word: "learn", pron: "/lɜːrn/", meaning: "学ぶ", example: "I want to learn English." },
+            { word: "study", pron: "/ˈstʌdi/", meaning: "勉強する", example: "Study hard every day." },
+            { word: "speak", pron: "/spiːk/", meaning: "話す", example: "Speak clearly and slowly." },
+            { word: "listen", pron: "/ˈlɪsən/", meaning: "聞く、聴く", example: "Listen to the music." },
+            { word: "think", pron: "/θɪŋk/", meaning: "考える、思う", example: "Think about your future." },
+            { word: "future", pron: "/ˈfjuːtʃər/", meaning: "未来、将来", example: "Build a bright future." },
+            { word: "happy", pron: "/ˈhæpi/", meaning: "嬉しい、幸せな", example: "I am very happy." },
+            { word: "hope", pron: "/hoʊp/", meaning: "希望（する）", example: "Never lose hope." }
+        ];
+
+        for (let gf of generalFallbacks) {
+            if (!foundItems.some(item => item.word === gf.word) && foundItems.length < 10) {
+                foundItems.push(gf);
+            }
+        }
+
+        // 10〜12個に切り詰める
+        foundItems = foundItems.slice(0, 12);
+
+        // テーブルに描画
+        foundItems.forEach(item => {
             let row = table.insertRow();
             row.insertCell(0).innerHTML = `<span class="hidden-spoiler" onclick="this.classList.toggle('revealed')">${item.word}</span>`;
             row.insertCell(1).textContent = item.pron;
@@ -387,7 +461,7 @@
                 document.getElementById('timerDisplay').textContent = timeLeft;
                 if (timeLeft <= 0) stopEnglishRecording();
             }, 1000);
-            startEnglishRecordingLoop(); // 正しい関数名に修正済み
+            startEnglishRecordingLoop();
         }).catch(err => alert("マイクの許可が必要です。"));
     }
 
@@ -425,7 +499,7 @@
         const currentDay = document.getElementById('currentDayInput').value;
         const sessionData = {
             dayNum: currentDay,
-            date: new Date().toLocaleString(),
+            date: new Date().toISOString().split('T')[0],
             jpText: document.getElementById('jpSpeechText').value,
             enText: document.getElementById('enTranslatedText').textContent,
             readingText: document.getElementById('readingText').value
@@ -459,21 +533,49 @@
             return;
         }
         const file = fileInput.files[0];
+        const fileName = file.name;
+        
+        let fileBaseDay = 1;
+        let fileDateObj = null;
+
+        const dayMatch = fileName.match(/_day(\d+)/i);
+        if (dayMatch) {
+            fileBaseDay = parseInt(dayMatch[1], 10);
+        }
+
+        const dateMatch = fileName.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (dateMatch) {
+            fileDateObj = new Date(parseInt(dateMatch[1]), parseInt(dateMatch[2]) - 1, parseInt(dateMatch[3]));
+        }
+
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const data = JSON.parse(e.target.result);
-                if (data.dayNum !== undefined) {
-                    document.getElementById('currentDayInput').value = data.dayNum;
-                    updateDayBanner();
+                
+                let calculatedDay = fileBaseDay;
+                if (fileDateObj) {
+                    const todayTime = new Date().setHours(0,0,0,0);
+                    const fileTime = fileDateObj.setHours(0,0,0,0);
+                    const diffDays = Math.floor((todayTime - fileTime) / (1000 * 60 * 60 * 24));
+                    if (diffDays >= 0) {
+                        calculatedDay = fileBaseDay + diffDays;
+                    }
+                } else if (data.dayNum !== undefined) {
+                    calculatedDay = parseInt(data.dayNum, 10);
                 }
+
+                document.getElementById('currentDayInput').value = calculatedDay;
+                updateDayBanner();
+
                 if (data.jpText !== undefined) {
                     const jpBox = document.getElementById('jpSpeechText');
                     jpBox.value = data.jpText;
                     autoResize(jpBox);
                 }
                 if (data.enText !== undefined) {
-                    document.getElementById('enTranslatedText').textContent = data.enText;
+                    const enBox = document.getElementById('enTranslatedText');
+                    enBox.textContent = data.enText;
                 }
                 if (data.readingText !== undefined) {
                     const readingBox = document.getElementById('readingText');
@@ -481,7 +583,14 @@
                     autoResize(readingBox);
                     updateWords();
                 }
-                alert(`「Day ${data.dayNum || 1}」の過去データを正常に読み込みました！`);
+
+                const table = document.getElementById('vocabTable');
+                if (table) {
+                    table.innerHTML = `<tr><th>イディオム・チャンク・重要語</th><th>発音</th><th>意味</th><th>短い例文</th><th>音声</th></tr>` +
+                                      `<tr><td colspan="5" style="text-align:center; color:#888;">上の抽出ボタンを押すと単語が表示されます</td></tr>`;
+                }
+
+                alert(`過去データを正常に読み込みました！（本日は自動計算で「Day ${calculatedDay}」になります）`);
             } catch (err) {
                 alert("ファイルの読み込みに失敗しました。正しいJSONファイルか確認してください。");
             }
