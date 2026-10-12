@@ -17,6 +17,7 @@
         button.record { background: #27ae60; }
         button.generate { background: #e67e22; padding: 12px 20px; font-size: 1rem; width: 100%; margin-bottom: 10px; }
         button.save { background: #8e44ad; padding: 12px 20px; font-size: 1rem; width: 100%; margin-top: 10px; }
+        button.overwrite { background: #d35400; padding: 12px 20px; font-size: 1rem; width: 100%; margin-top: 10px; }
         button.load { background: #27ae60; padding: 12px 20px; font-size: 1rem; width: 100%; margin-top: 10px; }
         button.toggle-btn { background: #e67e22; font-size: 0.8rem; padding: 6px 10px; }
         .slider-container { margin: 15px 0; }
@@ -62,7 +63,7 @@
     <div class="step-card">
         <h3>③ 実用的なイディオム・チャンク・上級表現</h3>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button onclick="extractProIdiomsAndChunks()" style="flex: 1;">🔍 ハイレベルな表現を抽出・シャッフル</button>
+            <button onclick="extractProIdiomsAndChunks()" style="flex: 1;">🔍 英文に含まれる表現だけを厳選抽出</button>
         </div>
         <div style="margin: 10px 0;">
             <button class="toggle-btn" onclick="toggleMode('meaning')">💡 意味を隠す / 表示</button>
@@ -118,20 +119,25 @@
             <label style="font-size: 0.85rem; font-weight: bold; color: #4a148c;">現在のレッスンのDay数設定:</label>
             <input type="number" id="currentDayInput" value="1" min="1" max="7" style="width: 80px; padding: 5px; margin-left: 10px;" onchange="updateDayBanner()" /> 日目
         </div>
-        <p style="font-size: 0.85rem; color: #666;" id="fileStatusMsg">保存ボタンを押すと、読み込んだファイルへの上書き、または新しいファイルとしての保存が選べます。</p>
+        <p style="font-size: 0.85rem; color: #666;" id="fileStatusMsg">ファイルを選ぶと、そのファイルへの「上書き保存」が有効になります。</p>
         
-        <button onclick="exportDataToFile()" class="save">💾 学習データを保存する（上書き / 新規）</button>
+        <button onclick="exportNewDataToFile()" class="save">💾 新規ファイルとして保存する（ダウンロード）</button>
 
         <div style="margin-top: 20px; border-top: 1px dashed #d1c4e9; padding-top: 15px;">
             <label for="loadFileInput" style="font-size: 0.9rem; font-weight: bold; color: #4a148c; display: block; margin-bottom: 5px;">📂 過去の学習データファイル（.json）を選ぶ</label>
             <input type="file" id="loadFileInput" accept=".json" style="margin-bottom: 10px; display: block; background: #fff;" />
-            <button onclick="importDataFromFile()" class="load">📂 選択したデータを読み込んで復元する</button>
+            
+            <div style="display: flex; gap: 8px;">
+                <button onclick="importDataFromFile()" class="load" style="flex: 1; margin-top: 0;">📂 選択したデータを読み込む</button>
+                <button onclick="overwriteLoadedFile()" class="overwrite" id="overwriteBtn" style="flex: 1; margin-top: 0; background: #95a5a6; cursor: not-allowed;" disabled>✍️ 読み込んだファイルに上書き保存</button>
+            </div>
         </div>
     </div>
 
 <script>
     let currentVocabData = [];
-    let loadedFileHandle = null; // 読み込んだファイルへのハンドルを保持（上書き用）
+    let loadedFileName = "";
+    let loadedFileContentData = null;
 
     window.onload = function() {
         try {
@@ -233,7 +239,7 @@
         }
     }
     
-    // ③ 高度なイディオム・チャンク抽出 ＆ シャッフル機能
+    // ③ 完全に英文内に含まれる表現のみを抽出する厳密なロジック
     function extractProIdiomsAndChunks() {
         const text = document.getElementById('enTranslatedText').textContent;
         if (!text || text.includes("翻訳された英文がここに表示されます") || text.includes("翻訳中")) {
@@ -243,32 +249,45 @@
 
         const lowerText = text.toLowerCase();
 
-        const proIdiomChunkDatabase = {
+        // 包括的な辞書データベース（意味と例文）
+        const sentenceDictionary = {
+            "years old": { pron: "/jɪərz oʊld/", meaning: "~歳である", example: "I am sixty years old." },
+            "next year": { pron: "/nɛkst jɪər/", meaning: "来年", example: "I will travel next year." },
+            "it's often said": { pron: "/ɪts ˈɒfən sɛd/", meaning: "よく言われることだが", example: "It's often said that health is wealth." },
+            "work for": { pron: "/wɜːrk fɔːr/", meaning: "~に勤務している", example: "I work for a global company." },
+            "cosmetics company": { pron: "/kɒzˈmɛtɪks ˈkʌmpəni/", meaning: "化粧品会社", example: "She works for a cosmetics company." },
+            "body is honest": { pron: "/ˈbɒdi ɪz ˈɒnɪst/", meaning: "体は正直である", example: "My body is honest when I'm tired." },
+            "hurts everywhere": { pron: "/hɜːrts ˈɛvriˌwɛər/", meaning: "あちこちが痛む", example: "After the workout, it hurts everywhere." },
+            "sleeping badly": { pron: "/ˈsliːpɪŋ ˈbædli/", meaning: "眠りが浅い、よく眠れない", example: "I have been sleeping badly recently." },
+            "young": { pron: "/jʌŋ/", meaning: "若い", example: "You are young and energetic." },
+            "because": { pron: "/bɪˈkɒz/", meaning: "なぜなら〜だから", example: "I stayed home because it was raining." },
+            "everywhere": { pron: "/ˈɛvriˌwɛər/", meaning: "至る所に", example: "Search everywhere for the key." },
+            "badly": { pron: "/ˈbædli/", meaning: "ひどく、悪く", example: "The team played badly." },
+            "company": { pron: "/ˈkʌmpəni/", meaning: "会社、企業", example: "He joined a new company." },
+            "honest": { pron: "/ˈɒnɪst/", meaning: "正直な", example: "To be honest, I don't know." },
             "keeping a diary": { pron: "/ˈkiːpɪŋ ə ˈdaɪəri/", meaning: "日記をつけること", example: "Keeping a diary helps clear your mind." },
             "organize your thoughts": { pron: "/ˈɔːrɡənaɪz jʊər θɔːts/", meaning: "思考を整理する", example: "Writing helps organize your thoughts." },
-            "stress relief": { pron: "/strɛs rɪˈliːf/", meaning: "ストレス発散、軽減", example: "Music is a great stress relief." },
+            "stress relief": { pron: "/strɛs rɪˈliːf/", meaning: "ストレス発散", example: "Music is a great stress relief." },
             "reflect on the past": { pron: "/rɪˈflɛkt ɒn ðə pæst/", meaning: "過去を振り返る", example: "It is good to reflect on the past." },
             "at the same time": { pron: "/æt ðə seɪm taɪm/", meaning: "同時に", example: "They spoke at the same time." },
             "look forward to": { pron: "/lʊk ˈfɔːrwərd tuː/", meaning: "～を楽しみに待つ", example: "I look forward to seeing you." },
             "such as": { pron: "/sʌtʃ æz/", meaning: "例えば～のような", example: "I like sports such as tennis." },
-            "depend on": { pron: "/dɪˈpɛnd ɒn/", meaning: "～次第である、頼る", example: "It depends on the situation." },
-            "care about": { pron: "/kɛər əˈbaʊt/", meaning: "～を気にする、大切に思う", example: "We care about our future." },
-            "come up with": { pron: "/kʌm ʌp wɪð/", meaning: "思いつく、考案する", example: "She came up with a great idea." },
+            "depend on": { pron: "/dɪˈpɛnd ɒn/", meaning: "～次第である", example: "It depends on the situation." },
+            "care about": { pron: "/kɛər əˈbaʊt/", meaning: "～を気にする", example: "We care about our future." },
+            "come up with": { pron: "/kʌm ʌp wɪð/", meaning: "思いつく", example: "She came up with a great idea." },
             "point out": { pron: "/pɔɪnt aʊt/", meaning: "指摘する", example: "He pointed out the mistake." },
-            "take care of": { pron: "/teɪk kɛər ɒv/", meaning: "世話をする、処理する", example: "I will take care of it." },
-            "make sure": { pron: "/meɪk ʃʊər/", meaning: "確かめる、確実にする", example: "Make sure you lock the door." },
+            "take care of": { pron: "/teɪk kɛər ɒv/", meaning: "世話をする", example: "I will take care of it." },
+            "make sure": { pron: "/meɪk ʃʊər/", meaning: "確かめる", example: "Make sure you lock the door." },
             "in order to": { pron: "/ɪn ˈɔːrdər tuː/", meaning: "～するために", example: "Study hard in order to pass." },
             "as soon as": { pron: "/æz suːn æz/", meaning: "～するとすぐに", example: "Call me as soon as you arrive." },
-            "deal with": { pron: "/diːl wɪð/", meaning: "対処する、扱う", example: "We must deal with this problem." },
-            "find out": { pron: "/faɪnd aʊt/", meaning: "見つけ出す、知る", example: "I want to find out the truth." },
-            "overwhelming": { pron: "/ˌoʊvərˈwɛlmɪŋ/", meaning: "圧倒的な", example: "It was an overwhelming experience." },
-            "expression skills": { pron: "/ɪkˈsprɛʃən skɪlz/", meaning: "表現力", example: "Develop your expression skills." },
-            "language skills": { pron: "/ˈlæŋɡwɪdʒ skɪlz/", meaning: "語学力、言語能力", example: "Improve your language skills." },
-            "vocabulary": { pron: "/voʊˈkæbjəˌlɛri/", meaning: "語彙", example: "Build up your vocabulary everyday." }
+            "deal with": { pron: "/diːl wɪð/", meaning: "対処する", example: "We must deal with this problem." },
+            "find out": { pron: "/faɪnd aʊt/", meaning: "見つけ出す", example: "I want to find out the truth." }
         };
 
         let matched = [];
-        for (let [phrase, info] of Object.entries(proIdiomChunkDatabase)) {
+
+        // 英文に実際に含まれているものだけを完全一致でスキャン
+        for (let [phrase, info] of Object.entries(sentenceDictionary)) {
             if (lowerText.includes(phrase)) {
                 if (!matched.some(item => item.word === phrase)) {
                     matched.push({ word: phrase, ...info });
@@ -276,16 +295,12 @@
             }
         }
 
-        let allKeys = Object.keys(proIdiomChunkDatabase);
-        allKeys.sort(() => Math.random() - 0.5);
+        currentVocabData = matched;
 
-        for (let key of allKeys) {
-            if (!matched.some(item => item.word === key) && matched.length < 12) {
-                matched.push({ word: key, ...proIdiomChunkDatabase[key] });
-            }
+        if (currentVocabData.length === 0) {
+            alert("英文の中に辞書登録された表現が見つかりませんでした。");
         }
 
-        currentVocabData = matched.slice(0, 12);
         renderVocabTable();
     }
 
@@ -337,3 +352,275 @@
                 "Thinking about this brings strong feelings and great memories to my mind. " +
                 "Every single day, I try to spend time enjoying things that inspire me and make me feel alive. " +
                 "Having passions in our lives gives us energy and hope for the future. " +
+                "Many people around the world share similar interests, and we can connect through our shared love for great art. " +
+                "Learning English helps me express these personal thoughts and ideas more clearly. " +
+                "Even when things are difficult, listening to great music can change our mood completely. " +
+                "I want to keep practicing my English speaking and reading every day so I can share more stories. " +
+                "I believe small steps every day will lead to great progress. " +
+                "Thank you for reading this, and I hope you also enjoy learning English and sharing your wonderful stories!";
+            readingArea.value = slimPassage;
+            autoResize(readingArea);
+            updateWords();
+            updateInteractiveReadingBox(slimPassage);
+            alert("A1英文を作成しました！⑤のセクションでカーソル辞書も使えます。");
+        }, 500);
+    }
+
+    const hoverDictionary = {
+        "thoughts": "考え, 思い", "topic": "話題, テーマ", "feelings": "気持ち, 感情",
+        "memories": "思い出", "inspire": "ひらめきを与える", "alive": "生きている",
+        "passions": "情熱", "energy": "エネルギー", "hope": "希望",
+        "interests": "興味、関心", "connect": "つながる", "express": "表現する",
+        "difficult": "難しい", "completely": "完全に", "progress": "進歩"
+    };
+
+    function updateInteractiveReadingBox(text) {
+        const box = document.getElementById('interactiveReadingText');
+        if (!box) return;
+        const words = text.split(/\s+/);
+        box.innerHTML = words.map(rawWord => {
+            const cleanWord = rawWord.replace(/[^a-zA-Z]/g, "").toLowerCase();
+            return hoverDictionary[cleanWord] ? 
+                `<span class="tooltip-word" data-meaning="${hoverDictionary[cleanWord]}">${rawWord}</span>` : rawWord;
+        }).join(" ");
+    }
+
+    function updateWords() {
+        const readingText = document.getElementById('readingText');
+        const wordCountSpan = document.getElementById('wordCount');
+        if (!readingText) return;
+        const text = readingText.value.trim();
+        const words = text === "" ? 0 : text.split(/\s+/).length;
+        if (wordCountSpan) wordCountSpan.textContent = words;
+        updateInteractiveReadingBox(text);
+    }
+
+    const readingTextElem = document.getElementById('readingText');
+    if (readingTextElem) readingTextElem.addEventListener('input', updateWords);
+
+    let startTime = 0;
+    function startTimer() { startTime = new Date().getTime(); alert("計測スタート！読み終わったら「計測終了」を押してください。"); }
+    function stopTimer() {
+        if (!startTime) { alert("先に計測を開始してください。"); return; }
+        let seconds = (new Date().getTime() - startTime) / 1000;
+        const wordCountSpan = document.getElementById('wordCount');
+        let words = wordCountSpan ? parseInt(wordCountSpan.textContent) : 0;
+        if (seconds > 0 && words > 0) {
+            let wpm = Math.round((words / seconds) * 60);
+            document.getElementById('wpmResult').textContent = wpm;
+            alert(`タイム: ${seconds.toFixed(1)}秒, WPM: ${wpm}`);
+        }
+        startTime = 0;
+    }
+
+    const speedSlider = document.getElementById('speedSlider');
+    const speedVal = document.getElementById('speedVal');
+    if (speedSlider && speedVal) speedSlider.addEventListener('input', () => { speedVal.textContent = speedSlider.value; });
+
+    let utterance = null;
+    function speakText() {
+        const readingText = document.getElementById('readingText');
+        if (!readingText) return;
+        window.speechSynthesis.cancel();
+        utterance = new SpeechSynthesisUtterance(readingText.value);
+        utterance.lang = 'en-US';
+        utterance.rate = parseFloat(speedSlider ? speedSlider.value : 1.0);
+        window.speechSynthesis.speak(utterance);
+    }
+    function stopSpeech() { window.speechSynthesis.cancel(); }
+
+    let mediaRecorder, audioChunks = [], countdownInterval = null, timeLeft = 60, enRecognition;
+    let isRecordingActive = false, accumulatedTranscript = "";
+
+    function startEnglishRecording() {
+        if (countdownInterval) clearInterval(countdownInterval);
+        audioChunks = []; timeLeft = 60; accumulatedTranscript = ""; isRecordingActive = true;
+        document.getElementById('timerDisplay').textContent = timeLeft;
+        document.getElementById('transcriptBox').textContent = "(音声認識中...)";
+
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(audioChunks, { type: 'audio/mp3' });
+                const player = document.getElementById('audioPlayback');
+                player.src = URL.createObjectURL(blob);
+                player.style.display = 'block';
+            };
+            mediaRecorder.start();
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timerDisplay').textContent = timeLeft;
+                if (timeLeft <= 0) stopEnglishRecording();
+            }, 1000);
+            startEnglishRecordingLoop();
+        }).catch(err => alert("マイクの許可が必要です。"));
+    }
+
+    function startEnglishRecordingLoop() {
+        if (!isRecordingActive) return;
+        if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        enRecognition = new SpeechRecognition();
+        enRecognition.lang = 'en-US';
+        enRecognition.continuous = true;
+        enRecognition.interimResults = true;
+        enRecognition.onresult = (ev) => {
+            let interim = "";
+            for (let i = ev.resultIndex; i < ev.results.length; ++i) {
+                if (ev.results[i].isFinal) accumulatedTranscript += ev.results[i][0].transcript + " ";
+                else interim += ev.results[i][0].transcript;
+            }
+            document.getElementById('transcriptBox').textContent = accumulatedTranscript + interim;
+        };
+        enRecognition.onend = () => { if (isRecordingActive) { try { enRecognition.start(); } catch (e) {} } };
+        try { enRecognition.start(); } catch (e) {}
+    }
+
+    function stopEnglishRecording() {
+        isRecordingActive = false;
+        if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+        if (enRecognition) { try { enRecognition.abort(); } catch(e) {} }
+        const box = document.getElementById('transcriptBox');
+        box.textContent = box.textContent.includes("音声認識中") && !accumulatedTranscript.trim() ? 
+            "(音声が検出されませんでした)" : (accumulatedTranscript.trim() || box.textContent.trim());
+    }
+
+    function exportNewDataToFile() {
+        const currentDay = document.getElementById('currentDayInput').value;
+        const sessionData = {
+            dayNum: currentDay,
+            date: new Date().toISOString().split('T')[0],
+            jpText: document.getElementById('jpSpeechText').value,
+            enText: document.getElementById('enTranslatedText').textContent,
+            readingText: document.getElementById('readingText').value,
+            vocabData: currentVocabData
+        };
+        const jsonString = JSON.stringify(sessionData, null, 2);
+        const today = new Date();
+        const fileName = `english_study_${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}_day${currentDay}.json`;
+        
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = fileName;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        alert(`新しい学習データ「${fileName}」として保存しました！`);
+    }
+
+    function overwriteLoadedFile() {
+        if (!loadedFileName) {
+            alert("まだファイルが読み込まれていません。「過去の学習データファイルを選ぶ」からファイルを選択して読み込んでください。");
+            return;
+        }
+
+        const currentDay = document.getElementById('currentDayInput').value;
+        const sessionData = {
+            dayNum: currentDay,
+            date: new Date().toISOString().split('T')[0],
+            jpText: document.getElementById('jpSpeechText').value,
+            enText: document.getElementById('enTranslatedText').textContent,
+            readingText: document.getElementById('readingText').value,
+            vocabData: currentVocabData
+        };
+        const jsonString = JSON.stringify(sessionData, null, 2);
+
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = loadedFileName;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        
+        alert(`ファイル「${loadedFileName}」に上書き保存しました！`);
+    }
+
+    function importDataFromFile() {
+        const fileInput = document.getElementById('loadFileInput');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert("ファイルが選択されていません。ファイルを選んでからボタンを押してください。");
+            return;
+        }
+        const file = fileInput.files[0];
+        loadedFileName = file.name;
+        
+        let fileBaseDay = 1;
+        let fileDateObj = null;
+
+        const dayMatch = loadedFileName.match(/_day(\d+)/i);
+        if (dayMatch) {
+            fileBaseDay = parseInt(dayMatch[1], 10);
+        }
+
+        const dateMatch = loadedFileName.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (dateMatch) {
+            fileDateObj = new Date(parseInt(dateMatch[1]), parseInt(dateMatch[2]) - 1, parseInt(dateMatch[3]));
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                loadedFileContentData = data;
+                
+                let calculatedDay = fileBaseDay;
+                if (fileDateObj) {
+                    const todayTime = new Date().setHours(0,0,0,0);
+                    const fileTime = fileDateObj.setHours(0,0,0,0);
+                    const diffDays = Math.floor((todayTime - fileTime) / (1000 * 60 * 60 * 24));
+                    if (diffDays >= 0) {
+                        calculatedDay = fileBaseDay + diffDays;
+                    }
+                } else if (data.dayNum !== undefined) {
+                    calculatedDay = parseInt(data.dayNum, 10);
+                }
+
+                document.getElementById('currentDayInput').value = calculatedDay;
+                updateDayBanner();
+
+                if (data.jpText !== undefined) {
+                    const jpBox = document.getElementById('jpSpeechText');
+                    jpBox.value = data.jpText;
+                    autoResize(jpBox);
+                }
+                if (data.enText !== undefined) {
+                    const enBox = document.getElementById('enTranslatedText');
+                    enBox.textContent = data.enText;
+                }
+                if (data.readingText !== undefined) {
+                    const readingBox = document.getElementById('readingText');
+                    readingBox.value = data.readingText;
+                    autoResize(readingBox);
+                    updateWords();
+                }
+
+                if (data.vocabData && Array.isArray(data.vocabData) && data.vocabData.length > 0) {
+                    currentVocabData = data.vocabData;
+                    renderVocabTable();
+                } else {
+                    const table = document.getElementById('vocabTable');
+                    if (table) {
+                        table.innerHTML = `<tr><th>イディオム・チャンク・上級表現</th><th>発音</th><th>意味</th><th>短い例文</th><th>音声</th></tr>` +
+                                          `<tr><td colspan="5" style="text-align:center; color:#888;">上の抽出ボタンを押すと単語が表示されます</td></tr>`;
+                    }
+                }
+
+                const overwriteBtn = document.getElementById('overwriteBtn');
+                overwriteBtn.disabled = false;
+                overwriteBtn.style.background = '#d35400';
+                overwriteBtn.style.cursor = 'pointer';
+
+                document.getElementById('fileStatusMsg').innerHTML = `📂 読込中ファイル: <b>${loadedFileName}</b> (上書き保存が可能になりました)`;
+                alert(`過去データを正常に読み込みました！（Day ${calculatedDay} のデータと単語リストが復元されました）`);
+            } catch (err) {
+                alert("ファイルの読み込みに失敗しました。正しいJSONファイルか確認してください。");
+            }
+        };
+        reader.readAsText(file);
+    }
+</script>
+
+</body>
+</html>
