@@ -30,11 +30,13 @@
         .vocab-table th { background: #f1f5f9; }
         .hidden-spoiler { background: #e2e8f0; color: #333; cursor: pointer; border-radius: 4px; padding: 2px 6px; user-select: none; transition: background 0.2s, color 0.2s; }
         .hidden-spoiler.hidden { background: #333; color: #333; }
+        /* カーソル辞書（ツールチップ）のスタイル */
         .tooltip-word { position: relative; border-bottom: 1px dotted #2980b9; cursor: help; }
         .tooltip-word:hover::after {
             content: attr(data-meaning);
             position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%);
             background: #2c3e50; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; white-space: nowrap; z-index: 10;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
         }
         .interactive-reading-box { background: #fff; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-top: 8px; font-size: 0.95rem; line-height: 1.8; min-height: 80px; }
     </style>
@@ -63,7 +65,7 @@
     <div class="step-card">
         <h3>③ 実用的なイディオム・チャンク・上級表現</h3>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button onclick="extractProIdiomsAndChunks()" style="flex: 1;">🔍 英文に含まれる表現だけを厳選抽出</button>
+            <button onclick="extractProIdiomsAndChunks()" style="flex: 1;">🔍 ハイレベルな表現を抽出・シャッフル</button>
         </div>
         <div style="margin: 10px 0;">
             <button class="toggle-btn" onclick="toggleMode('meaning')">💡 意味を隠す / 表示</button>
@@ -92,7 +94,7 @@
 
     <!-- ⑤ 読み上げ ＆ カーソル辞書 -->
     <div class="step-card">
-        <h3>⑤ 音声読み上げ ＆ 単語の意味チェック</h3>
+        <h3>⑤ 音声読み上げ ＆ カーソル辞書</h3>
         <div class="interactive-reading-box" id="interactiveReadingText">(上の④で英文を作成すると、ここにカーソル辞書付きの文章が表示されます)</div>
         <div class="slider-container" style="margin-top: 15px;">
             <label for="speedSlider">読み上げスピード: <span id="speedVal">1.0</span>倍</label>
@@ -239,69 +241,62 @@
         }
     }
     
-    // ③ 完全に英文内に含まれる表現のみを抽出する厳密なロジック
+    // ③ 初回抽出・シャッフル機能つきのハイレベル表現抽出関数
     function extractProIdiomsAndChunks() {
         const text = document.getElementById('enTranslatedText').textContent;
-        if (!text || text.includes("翻訳された英文がここに表示されます") || text.includes("翻訳中")) {
-            alert("先にステップ②で英文を翻訳してください！");
-            return;
-        }
+        const lowerText = text && !text.includes("翻訳された英文がここに表示されます") ? text.toLowerCase() : "";
 
-        const lowerText = text.toLowerCase();
-
-        // 包括的な辞書データベース（意味と例文）
-        const sentenceDictionary = {
-            "years old": { pron: "/jɪərz oʊld/", meaning: "~歳である", example: "I am sixty years old." },
-            "next year": { pron: "/nɛkst jɪər/", meaning: "来年", example: "I will travel next year." },
-            "it's often said": { pron: "/ɪts ˈɒfən sɛd/", meaning: "よく言われることだが", example: "It's often said that health is wealth." },
-            "work for": { pron: "/wɜːrk fɔːr/", meaning: "~に勤務している", example: "I work for a global company." },
-            "cosmetics company": { pron: "/kɒzˈmɛtɪks ˈkʌmpəni/", meaning: "化粧品会社", example: "She works for a cosmetics company." },
-            "body is honest": { pron: "/ˈbɒdi ɪz ˈɒnɪst/", meaning: "体は正直である", example: "My body is honest when I'm tired." },
-            "hurts everywhere": { pron: "/hɜːrts ˈɛvriˌwɛər/", meaning: "あちこちが痛む", example: "After the workout, it hurts everywhere." },
-            "sleeping badly": { pron: "/ˈsliːpɪŋ ˈbædli/", meaning: "眠りが浅い、よく眠れない", example: "I have been sleeping badly recently." },
-            "young": { pron: "/jʌŋ/", meaning: "若い", example: "You are young and energetic." },
-            "because": { pron: "/bɪˈkɒz/", meaning: "なぜなら〜だから", example: "I stayed home because it was raining." },
-            "everywhere": { pron: "/ˈɛvriˌwɛər/", meaning: "至る所に", example: "Search everywhere for the key." },
-            "badly": { pron: "/ˈbædli/", meaning: "ひどく、悪く", example: "The team played badly." },
-            "company": { pron: "/ˈkʌmpəni/", meaning: "会社、企業", example: "He joined a new company." },
-            "honest": { pron: "/ˈɒnɪst/", meaning: "正直な", example: "To be honest, I don't know." },
+        // 高度なイディオム・チャンク・上級表現のマスターデータベース
+        const proIdiomChunkDatabase = {
             "keeping a diary": { pron: "/ˈkiːpɪŋ ə ˈdaɪəri/", meaning: "日記をつけること", example: "Keeping a diary helps clear your mind." },
             "organize your thoughts": { pron: "/ˈɔːrɡənaɪz jʊər θɔːts/", meaning: "思考を整理する", example: "Writing helps organize your thoughts." },
-            "stress relief": { pron: "/strɛs rɪˈliːf/", meaning: "ストレス発散", example: "Music is a great stress relief." },
+            "stress relief": { pron: "/strɛs rɪˈliːf/", meaning: "ストレス発散、軽減", example: "Music is a great stress relief." },
             "reflect on the past": { pron: "/rɪˈflɛkt ɒn ðə pæst/", meaning: "過去を振り返る", example: "It is good to reflect on the past." },
             "at the same time": { pron: "/æt ðə seɪm taɪm/", meaning: "同時に", example: "They spoke at the same time." },
             "look forward to": { pron: "/lʊk ˈfɔːrwərd tuː/", meaning: "～を楽しみに待つ", example: "I look forward to seeing you." },
             "such as": { pron: "/sʌtʃ æz/", meaning: "例えば～のような", example: "I like sports such as tennis." },
-            "depend on": { pron: "/dɪˈpɛnd ɒn/", meaning: "～次第である", example: "It depends on the situation." },
-            "care about": { pron: "/kɛər əˈbaʊt/", meaning: "～を気にする", example: "We care about our future." },
-            "come up with": { pron: "/kʌm ʌp wɪð/", meaning: "思いつく", example: "She came up with a great idea." },
+            "depend on": { pron: "/dɪˈpɛnd ɒn/", meaning: "～次第である、頼る", example: "It depends on the situation." },
+            "care about": { pron: "/kɛər əˈbaʊt/", meaning: "～を気にする、大切に思う", example: "We care about our future." },
+            "come up with": { pron: "/kʌm ʌp wɪð/", meaning: "思いつく、考案する", example: "She came up with a great idea." },
             "point out": { pron: "/pɔɪnt aʊt/", meaning: "指摘する", example: "He pointed out the mistake." },
-            "take care of": { pron: "/teɪk kɛər ɒv/", meaning: "世話をする", example: "I will take care of it." },
-            "make sure": { pron: "/meɪk ʃʊər/", meaning: "確かめる", example: "Make sure you lock the door." },
+            "take care of": { pron: "/teɪk kɛər ɒv/", meaning: "世話をする、処理する", example: "I will take care of it." },
+            "make sure": { pron: "/meɪk ʃʊər/", meaning: "確かめる、確実にする", example: "Make sure you lock the door." },
             "in order to": { pron: "/ɪn ˈɔːrdər tuː/", meaning: "～するために", example: "Study hard in order to pass." },
             "as soon as": { pron: "/æz suːn æz/", meaning: "～するとすぐに", example: "Call me as soon as you arrive." },
-            "deal with": { pron: "/diːl wɪð/", meaning: "対処する", example: "We must deal with this problem." },
-            "find out": { pron: "/faɪnd aʊt/", meaning: "見つけ出す", example: "I want to find out the truth." }
+            "deal with": { pron: "/diːl wɪð/", meaning: "対処する、扱う", example: "We must deal with this problem." },
+            "find out": { pron: "/faɪnd aʊt/", meaning: "見つけ出す、知る", example: "I want to find out the truth." },
+            "overwhelming": { pron: "/ˌoʊvərˈwɛlmɪŋ/", meaning: "圧倒的な", example: "It was an overwhelming experience." },
+            "expression skills": { pron: "/ɪkˈsprɛʃən skɪlz/", meaning: "表現力", example: "Develop your expression skills." },
+            "language skills": { pron: "/ˈlæŋɡwɪdʒ skɪlz/", meaning: "語学力、言語能力", example: "Improve your language skills." },
+            "vocabulary": { pron: "/voʊˈkæbjəˌlɛri/", meaning: "語彙", example: "Build up your vocabulary everyday." }
         };
 
         let matched = [];
 
-        // 英文に実際に含まれているものだけを完全一致でスキャン
-        for (let [phrase, info] of Object.entries(sentenceDictionary)) {
-            if (lowerText.includes(phrase)) {
-                if (!matched.some(item => item.word === phrase)) {
-                    matched.push({ word: phrase, ...info });
+        // 1. もし英文があれば、その中から一致するものをまず抽出
+        if (lowerText) {
+            for (let [phrase, info] of Object.entries(proIdiomChunkDatabase)) {
+                if (lowerText.includes(phrase)) {
+                    if (!matched.some(item => item.word === phrase)) {
+                        matched.push({ word: phrase, ...info });
+                    }
                 }
             }
         }
 
-        currentVocabData = matched;
+        // 2. 10個に満たない場合や初回で英文がない場合でも、マスターデータベースからランダムにシャッフルして10〜12個を確実に生成
+        let allKeys = Object.keys(proIdiomChunkDatabase);
+        allKeys.sort(() => Math.random() - 0.5); // シャッフル
 
-        if (currentVocabData.length === 0) {
-            alert("英文の中に辞書登録された表現が見つかりませんでした。");
+        for (let key of allKeys) {
+            if (!matched.some(item => item.word === key) && matched.length < 12) {
+                matched.push({ word: key, ...proIdiomChunkDatabase[key] });
+            }
         }
 
+        currentVocabData = matched.slice(0, 12);
         renderVocabTable();
+        alert("ハイレベルな表現を抽出・シャッフルしました！気に入ったセットを保存して1週間練習してください。");
     }
 
     function renderVocabTable() {
@@ -309,6 +304,7 @@
         table.innerHTML = `<tr><th>イディオム・チャンク・上級表現</th><th>発音</th><th>意味</th><th>短い例文</th><th>音声</th></tr>`;
         currentVocabData.forEach(item => {
             let row = table.insertRow();
+            // デフォルトは表示（hiddenなし）
             row.insertCell(0).innerHTML = `<span class="hidden-spoiler" onclick="this.classList.toggle('hidden')">${item.word}</span>`;
             row.insertCell(1).textContent = item.pron;
             row.insertCell(2).innerHTML = `<span class="hidden-spoiler" onclick="this.classList.toggle('hidden')">${item.meaning}</span>`;
@@ -366,12 +362,25 @@
         }, 500);
     }
 
+    // ⑤用のカーソル辞書（マウスオーバーで小さな意味を表示）
     const hoverDictionary = {
-        "thoughts": "考え, 思い", "topic": "話題, テーマ", "feelings": "気持ち, 感情",
-        "memories": "思い出", "inspire": "ひらめきを与える", "alive": "生きている",
-        "passions": "情熱", "energy": "エネルギー", "hope": "希望",
-        "interests": "興味、関心", "connect": "つながる", "express": "表現する",
-        "difficult": "難しい", "completely": "完全に", "progress": "進歩"
+        "today": "今日", "want": "～したい", "share": "共有する", "thoughts": "考え, 思い", 
+        "based": "基にした", "talked": "話した", "main": "主な", "topic": "話題, テーマ", 
+        "thinking": "考えること", "brings": "もたらす", "strong": "強い", "feelings": "気持ち, 感情", 
+        "great": "素晴らしい", "memories": "思い出", "mind": "心, 精神", "every": "毎～", 
+        "single": "たった一つの", "day": "日", "try": "試みる, 努力する", "spend": "過ごす", 
+        "time": "時間", "enjoying": "楽しむこと", "things": "物事", "inspire": "ひらめきを与える", 
+        "alive": "生きている", "passions": "情熱", "lives": "人生, 生活", "gives": "与える", 
+        "energy": "エネルギー", "hope": "希望", "future": "未来", "people": "人々", 
+        "world": "世界", "share": "共有する", "similar": "似た", "interests": "興味、関心", 
+        "connect": "つながる", "shared": "共有された", "love": "愛", "art": "アート, 芸術", 
+        "learning": "学ぶこと", "english": "英語", "helps": "助ける", "express": "表現する", 
+        "personal": "個人的な", "ideas": "アイデア", "clearly": "明確に", "even": "～でさえ", 
+        "things": "物事", "difficult": "難しい", "listening": "聞くこと", "music": "音楽", 
+        "change": "変える", "mood": "気分", "completely": "完全に", "keep": "保つ, 続ける", 
+        "practicing": "練習すること", "speaking": "話すこと", "reading": "読むこと", "stories": "物語", 
+        "believe": "信じる", "small": "小さな", "steps": "一歩", "lead": "導く", "progress": "進歩", 
+        "thank": "感謝する", "reading": "読むこと", "hope": "望む", "enjoy": "楽しむ"
     };
 
     function updateInteractiveReadingBox(text) {
@@ -379,6 +388,7 @@
         if (!box) return;
         const words = text.split(/\s+/);
         box.innerHTML = words.map(rawWord => {
+            // 句読点を除去して辞書キーを作成
             const cleanWord = rawWord.replace(/[^a-zA-Z]/g, "").toLowerCase();
             return hoverDictionary[cleanWord] ? 
                 `<span class="tooltip-word" data-meaning="${hoverDictionary[cleanWord]}">${rawWord}</span>` : rawWord;
