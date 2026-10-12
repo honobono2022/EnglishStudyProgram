@@ -27,7 +27,6 @@
         .vocab-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
         .vocab-table th, .vocab-table td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
         .vocab-table th { background: #f1f5f9; }
-        /* デフォルトは表示（revealed状態）。クリックで黒塗りに切り替え可能 */
         .hidden-spoiler { background: #e2e8f0; color: #333; cursor: pointer; border-radius: 4px; padding: 2px 6px; user-select: none; transition: background 0.2s, color 0.2s; }
         .hidden-spoiler.hidden { background: #333; color: #333; }
         .tooltip-word { position: relative; border-bottom: 1px dotted #2980b9; cursor: help; }
@@ -119,9 +118,9 @@
             <label style="font-size: 0.85rem; font-weight: bold; color: #4a148c;">現在のレッスンのDay数設定:</label>
             <input type="number" id="currentDayInput" value="1" min="1" max="7" style="width: 80px; padding: 5px; margin-left: 10px;" onchange="updateDayBanner()" /> 日目
         </div>
-        <p style="font-size: 0.85rem; color: #666;">上書き保存しながら1週間継続し、新しい週に新しいファイルを作成できます。</p>
+        <p style="font-size: 0.85rem; color: #666;" id="fileStatusMsg">保存ボタンを押すと、読み込んだファイルへの上書き、または新しいファイルとしての保存が選べます。</p>
         
-        <button onclick="exportDataToFile()" class="save">💾 学習データをファイルとして保存する</button>
+        <button onclick="exportDataToFile()" class="save">💾 学習データを保存する（上書き / 新規）</button>
 
         <div style="margin-top: 20px; border-top: 1px dashed #d1c4e9; padding-top: 15px;">
             <label for="loadFileInput" style="font-size: 0.9rem; font-weight: bold; color: #4a148c; display: block; margin-bottom: 5px;">📂 過去の学習データファイル（.json）を選ぶ</label>
@@ -132,6 +131,7 @@
 
 <script>
     let currentVocabData = [];
+    let loadedFileHandle = null; // 読み込んだファイルへのハンドルを保持（上書き用）
 
     window.onload = function() {
         try {
@@ -257,7 +257,7 @@
             "point out": { pron: "/pɔɪnt aʊt/", meaning: "指摘する", example: "He pointed out the mistake." },
             "take care of": { pron: "/teɪk kɛər ɒv/", meaning: "世話をする、処理する", example: "I will take care of it." },
             "make sure": { pron: "/meɪk ʃʊər/", meaning: "確かめる、確実にする", example: "Make sure you lock the door." },
-            "in order to": { pron: "/in ˈɔːrdər tuː/", meaning: "～するために", example: "Study hard in order to pass." },
+            "in order to": { pron: "/ɪn ˈɔːrdər tuː/", meaning: "～するために", example: "Study hard in order to pass." },
             "as soon as": { pron: "/æz suːn æz/", meaning: "～するとすぐに", example: "Call me as soon as you arrive." },
             "deal with": { pron: "/diːl wɪð/", meaning: "対処する、扱う", example: "We must deal with this problem." },
             "find out": { pron: "/faɪnd aʊt/", meaning: "見つけ出す、知る", example: "I want to find out the truth." },
@@ -276,9 +276,7 @@
             }
         }
 
-        // 全データベースからシャッフルして候補を補充
         let allKeys = Object.keys(proIdiomChunkDatabase);
-        // 配列をシャッフル（ランダム化）
         allKeys.sort(() => Math.random() - 0.5);
 
         for (let key of allKeys) {
@@ -296,7 +294,6 @@
         table.innerHTML = `<tr><th>イディオム・チャンク・上級表現</th><th>発音</th><th>意味</th><th>短い例文</th><th>音声</th></tr>`;
         currentVocabData.forEach(item => {
             let row = table.insertRow();
-            // デフォルトは表示状態（hiddenクラスをつけない）
             row.insertCell(0).innerHTML = `<span class="hidden-spoiler" onclick="this.classList.toggle('hidden')">${item.word}</span>`;
             row.insertCell(1).textContent = item.pron;
             row.insertCell(2).innerHTML = `<span class="hidden-spoiler" onclick="this.classList.toggle('hidden')">${item.meaning}</span>`;
@@ -317,7 +314,7 @@
     function toggleMode(type) {
         const rows = document.querySelectorAll('#vocabTable tr');
         rows.forEach((row, index) => {
-            if (index === 0) return; // ヘッダースキップ
+            if (index === 0) return;
             const cells = row.querySelectorAll('.hidden-spoiler');
             if (type === 'word' && cells.length > 0) {
                 cells[0].classList.toggle('hidden');
@@ -340,253 +337,3 @@
                 "Thinking about this brings strong feelings and great memories to my mind. " +
                 "Every single day, I try to spend time enjoying things that inspire me and make me feel alive. " +
                 "Having passions in our lives gives us energy and hope for the future. " +
-                "Many people around the world share similar interests, and we can connect through our shared love for great art. " +
-                "Learning English helps me express these personal thoughts and ideas more clearly. " +
-                "Even when things are difficult, listening to great music can change our mood completely. " +
-                "I want to keep practicing my English speaking and reading every day so I can share more stories. " +
-                "I believe small steps every day will lead to great progress. " +
-                "Thank you for reading this, and I hope you also enjoy learning English and sharing your wonderful stories!";
-            readingArea.value = slimPassage;
-            autoResize(readingArea);
-            updateWords();
-            updateInteractiveReadingBox(slimPassage);
-            alert("A1英文を作成しました！⑤のセクションでカーソル辞書も使えます。");
-        }, 500);
-    }
-
-    const hoverDictionary = {
-        "thoughts": "考え, 思い", "topic": "話題, テーマ", "feelings": "気持ち, 感情",
-        "memories": "思い出", "inspire": "ひらめきを与える", "alive": "生きている",
-        "passions": "情熱", "energy": "エネルギー", "hope": "希望",
-        "interests": "興味、関心", "connect": "つながる", "express": "表現する",
-        "difficult": "難しい", "completely": "完全に", "progress": "進歩"
-    };
-
-    function updateInteractiveReadingBox(text) {
-        const box = document.getElementById('interactiveReadingText');
-        if (!box) return;
-        const words = text.split(/\s+/);
-        box.innerHTML = words.map(rawWord => {
-            const cleanWord = rawWord.replace(/[^a-zA-Z]/g, "").toLowerCase();
-            return hoverDictionary[cleanWord] ? 
-                `<span class="tooltip-word" data-meaning="${hoverDictionary[cleanWord]}">${rawWord}</span>` : rawWord;
-        }).join(" ");
-    }
-
-    function updateWords() {
-        const readingText = document.getElementById('readingText');
-        const wordCountSpan = document.getElementById('wordCount');
-        if (!readingText) return;
-        const text = readingText.value.trim();
-        const words = text === "" ? 0 : text.split(/\s+/).length;
-        if (wordCountSpan) wordCountSpan.textContent = words;
-        updateInteractiveReadingBox(text);
-    }
-
-    const readingTextElem = document.getElementById('readingText');
-    if (readingTextElem) readingTextElem.addEventListener('input', updateWords);
-
-    let startTime = 0;
-    function startTimer() { startTime = new Date().getTime(); alert("計測スタート！読み終わったら「計測終了」を押してください。"); }
-    function stopTimer() {
-        if (!startTime) { alert("先に計測を開始してください。"); return; }
-        let seconds = (new Date().getTime() - startTime) / 1000;
-        const wordCountSpan = document.getElementById('wordCount');
-        let words = wordCountSpan ? parseInt(wordCountSpan.textContent) : 0;
-        if (seconds > 0 && words > 0) {
-            let wpm = Math.round((words / seconds) * 60);
-            document.getElementById('wpmResult').textContent = wpm;
-            alert(`タイム: ${seconds.toFixed(1)}秒, WPM: ${wpm}`);
-        }
-        startTime = 0;
-    }
-
-    const speedSlider = document.getElementById('speedSlider');
-    const speedVal = document.getElementById('speedVal');
-    if (speedSlider && speedVal) speedSlider.addEventListener('input', () => { speedVal.textContent = speedSlider.value; });
-
-    let utterance = null;
-    function speakText() {
-        const readingText = document.getElementById('readingText');
-        if (!readingText) return;
-        window.speechSynthesis.cancel();
-        utterance = new SpeechSynthesisUtterance(readingText.value);
-        utterance.lang = 'en-US';
-        utterance.rate = parseFloat(speedSlider ? speedSlider.value : 1.0);
-        window.speechSynthesis.speak(utterance);
-    }
-    function stopSpeech() { window.speechSynthesis.cancel(); }
-
-    let mediaRecorder, audioChunks = [], countdownInterval = null, timeLeft = 60, enRecognition;
-    let isRecordingActive = false, accumulatedTranscript = "";
-
-    function startEnglishRecording() {
-        if (countdownInterval) clearInterval(countdownInterval);
-        audioChunks = []; timeLeft = 60; accumulatedTranscript = ""; isRecordingActive = true;
-        document.getElementById('timerDisplay').textContent = timeLeft;
-        document.getElementById('transcriptBox').textContent = "(音声認識中...)";
-
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(audioChunks, { type: 'audio/mp3' });
-                const player = document.getElementById('audioPlayback');
-                player.src = URL.createObjectURL(blob);
-                player.style.display = 'block';
-            };
-            mediaRecorder.start();
-            countdownInterval = setInterval(() => {
-                timeLeft--;
-                document.getElementById('timerDisplay').textContent = timeLeft;
-                if (timeLeft <= 0) stopEnglishRecording();
-            }, 1000);
-            startEnglishRecordingLoop();
-        }).catch(err => alert("マイクの許可が必要です。"));
-    }
-
-    function startEnglishRecordingLoop() {
-        if (!isRecordingActive) return;
-        if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        enRecognition = new SpeechRecognition();
-        enRecognition.lang = 'en-US';
-        enRecognition.continuous = true;
-        enRecognition.interimResults = true;
-        enRecognition.onresult = (ev) => {
-            let interim = "";
-            for (let i = ev.resultIndex; i < ev.results.length; ++i) {
-                if (ev.results[i].isFinal) accumulatedTranscript += ev.results[i][0].transcript + " ";
-                else interim += ev.results[i][0].transcript;
-            }
-            document.getElementById('transcriptBox').textContent = accumulatedTranscript + interim;
-        };
-        enRecognition.onend = () => { if (isRecordingActive) { try { enRecognition.start(); } catch (e) {} } };
-        try { enRecognition.start(); } catch (e) {}
-    }
-
-    function stopEnglishRecording() {
-        isRecordingActive = false;
-        if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-        if (enRecognition) { try { enRecognition.abort(); } catch(e) {} }
-        const box = document.getElementById('transcriptBox');
-        box.textContent = box.textContent.includes("音声認識中") && !accumulatedTranscript.trim() ? 
-            "(音声が検出されませんでした)" : (accumulatedTranscript.trim() || box.textContent.trim());
-    }
-
-    // 💾 学習データ保存（③の単語リスト vocabData も一緒に保存して1週間復元できるようにする）
-    async function exportDataToFile() {
-        const currentDay = document.getElementById('currentDayInput').value;
-        const sessionData = {
-            dayNum: currentDay,
-            date: new Date().toISOString().split('T')[0],
-            jpText: document.getElementById('jpSpeechText').value,
-            enText: document.getElementById('enTranslatedText').textContent,
-            readingText: document.getElementById('readingText').value,
-            vocabData: currentVocabData // 単語・イディオムリストも保存
-        };
-        const today = new Date();
-        const fileName = `english_study_${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}_day${currentDay}.json`;
-        const jsonString = JSON.stringify(sessionData, null, 2);
-        const file = new File([jsonString], fileName, { type: "application/json" });
-
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                await navigator.share({ files: [file], title: '英語学習データ', text: `Day ${currentDay} の学習データです` });
-                return;
-            } catch (err) {
-                if (err.name === 'AbortError') return;
-            }
-        }
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = fileName;
-        document.body.appendChild(a); a.click(); a.remove();
-        URL.revokeObjectURL(url);
-        alert(`学習データを「${fileName}」として保存しました！（単語リストも保存されています）`);
-    }
-
-    // 📂 ファイル読み込み（保存されていた単語リストも丸ごと復元）
-    function importDataFromFile() {
-        const fileInput = document.getElementById('loadFileInput');
-        if (!fileInput.files || fileInput.files.length === 0) {
-            alert("ファイルが選択されていません。ファイルを選んでからボタンを押してください。");
-            return;
-        }
-        const file = fileInput.files[0];
-        const fileName = file.name;
-        
-        let fileBaseDay = 1;
-        let fileDateObj = null;
-
-        const dayMatch = fileName.match(/_day(\d+)/i);
-        if (dayMatch) {
-            fileBaseDay = parseInt(dayMatch[1], 10);
-        }
-
-        const dateMatch = fileName.match(/(\d{4})-(\d{2})-(\d{2})/);
-        if (dateMatch) {
-            fileDateObj = new Date(parseInt(dateMatch[1]), parseInt(dateMatch[2]) - 1, parseInt(dateMatch[3]));
-        }
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = JSON.parse(e.target.result);
-                
-                let calculatedDay = fileBaseDay;
-                if (fileDateObj) {
-                    const todayTime = new Date().setHours(0,0,0,0);
-                    const fileTime = fileDateObj.setHours(0,0,0,0);
-                    const diffDays = Math.floor((todayTime - fileTime) / (1000 * 60 * 60 * 24));
-                    if (diffDays >= 0) {
-                        calculatedDay = fileBaseDay + diffDays;
-                    }
-                } else if (data.dayNum !== undefined) {
-                    calculatedDay = parseInt(data.dayNum, 10);
-                }
-
-                document.getElementById('currentDayInput').value = calculatedDay;
-                updateDayBanner();
-
-                if (data.jpText !== undefined) {
-                    const jpBox = document.getElementById('jpSpeechText');
-                    jpBox.value = data.jpText;
-                    autoResize(jpBox);
-                }
-                if (data.enText !== undefined) {
-                    const enBox = document.getElementById('enTranslatedText');
-                    enBox.textContent = data.enText;
-                }
-                if (data.readingText !== undefined) {
-                    const readingBox = document.getElementById('readingText');
-                    readingBox.value = data.readingText;
-                    autoResize(readingBox);
-                    updateWords();
-                }
-
-                // 保存されていた単語リストがあればそのまま復元、なければ初期化
-                if (data.vocabData && Array.isArray(data.vocabData) && data.vocabData.length > 0) {
-                    currentVocabData = data.vocabData;
-                    renderVocabTable();
-                } else {
-                    const table = document.getElementById('vocabTable');
-                    if (table) {
-                        table.innerHTML = `<tr><th>イディオム・チャンク・上級表現</th><th>発音</th><th>意味</th><th>短い例文</th><th>音声</th></tr>` +
-                                          `<tr><td colspan="5" style="text-align:center; color:#888;">上の抽出ボタンを押すと単語が表示されます</td></tr>`;
-                    }
-                }
-
-                alert(`過去データを正常に読み込みました！（Day ${calculatedDay} の単語リストも復元されました）`);
-            } catch (err) {
-                alert("ファイルの読み込みに失敗しました。正しいJSONファイルか確認してください。");
-            }
-        };
-        reader.readAsText(file);
-    }
-</script>
-
-</body>
-</html>
