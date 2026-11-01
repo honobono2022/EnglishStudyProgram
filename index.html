@@ -70,7 +70,7 @@
     <div class="step-card">
         <h3>③ 実用的なイディオム・チャンク・上級表現</h3>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button onclick="extractProIdiomsAndChunks()" style="flex: 1;">🔍 英文からイディオム・重要表現を抽出</button>
+            <button onclick="extractProIdiomsAndChunks()" style="flex: 1;">🔍 英文に含まれる表現だけを厳選抽出</button>
         </div>
         <div style="margin: 10px 0;">
             <button class="toggle-btn" onclick="toggleMode('meaning')">💡 意味を隠す / 表示</button>
@@ -246,67 +246,71 @@
         }
     }
     
-    // ③ 英文から重要表現・イディオムを抽出し、不足分は重要表現からスマートに埋める関数
+    // ③ ②の英文の中に「実際に含まれている」表現だけを完全一致で抽出する関数
     function extractProIdiomsAndChunks() {
         const text = document.getElementById('enTranslatedText').textContent;
-        const lowerText = text && !text.includes("翻訳された英文がここに表示されます") && !text.includes("翻訳中") ? text.toLowerCase() : "";
+        if (!text || text.includes("翻訳された英文がここに表示されます") || text.includes("翻訳中")) {
+            alert("先にステップ②で英文を翻訳してください！");
+            return;
+        }
 
-        const proIdiomChunkDatabase = {
-            "years old": { pron: "/jɪərz oʊld/", meaning: "~歳である", example: "I am sixty years old." },
-            "next year": { pron: "/nɛkst jɪər/", meaning: "来年", example: "I will travel next year." },
-            "it's often said": { pron: "/ɪts ˈɒfən sɛd/", meaning: "よく言われることだが", example: "It's often said that health is wealth." },
-            "work for": { pron: "/wɜːrk fɔːr/", meaning: "~に勤務している", example: "I work for a global company." },
-            "cosmetics company": { pron: "/kɒzˈmɛtɪks ˈkʌmpəni/", meaning: "化粧品会社", example: "She works for a cosmetics company." },
-            "body is honest": { pron: "/ˈbɒdi ɪz ˈɒnɪst/", meaning: "体は正直である", example: "My body is honest when I'm tired." },
-            "hurts everywhere": { pron: "/hɜːrts ˈɛvriˌwɛər/", meaning: "あちこちが痛む", example: "After the workout, it hurts everywhere." },
-            "sleeping badly": { pron: "/ˈsliːpɪŋ ˈbædli/", meaning: "眠りが浅い、よく眠れない", example: "I have been sleeping badly recently." },
-            "keeping a diary": { pron: "/ˈkiːpɪŋ ə ˈdaɪəri/", meaning: "日記をつけること", example: "Keeping a diary helps clear your mind." },
-            "organize your thoughts": { pron: "/ˈɔːrɡənaɪz jʊər θɔːts/", meaning: "思考を整理する", example: "Writing helps organize your thoughts." },
-            "stress relief": { pron: "/strɛs rɪˈliːf/", meaning: "ストレス発散、軽減", example: "Music is a great stress relief." },
-            "reflect on the past": { pron: "/rɪˈflɛkt ɒn ðə pæst/", meaning: "過去を振り返る", example: "It is good to reflect on the past." },
+        const lowerText = text.toLowerCase();
+
+        // 検索用マスター辞書（マイケル・ジャクソンの英文や一般的な文章に対応する豊富な熟語・単語データベース）
+        const masterDictionary = {
+            "take care of": { pron: "/teɪk kɛər ɒv/", meaning: "世話をする、処理する", example: "Take care of children." },
+            "set up": { pron: "/sɛt ʌp/", meaning: "設立する、準備する", example: "Set up foundations." },
+            "appeal to": { pron: "/əˈpiːl tuː/", meaning: "訴える、魅了する", example: "Appeal to create a world." },
+            "old age": { pron: "/oʊld eɪdʒ/", meaning: "高齢、老後", example: "Until his old age." },
+            "even though": { pron: "/ˈiːvən ðoʊ/", meaning: "～にもかかわらず", example: "Even though he was shaped." },
+            "as if": { pron: "/æz ɪf/", meaning: "まるで～のように", example: "Bashing as if trampling." },
             "at the same time": { pron: "/æt ðə seɪm taɪm/", meaning: "同時に", example: "They spoke at the same time." },
             "look forward to": { pron: "/lʊk ˈfɔːrwərd tuː/", meaning: "～を楽しみに待つ", example: "I look forward to seeing you." },
-            "such as": { pron: "/sʌtʃ æz/", meaning: "例えば～のような", example: "I like sports such as tennis." },
-            "depend on": { pron: "/dɪˈpɛnd ɒn/", meaning: "～次第である、頼る", example: "It depends on the situation." },
-            "care about": { pron: "/kɛər əˈbaʊt/", meaning: "～を気にする、大切に思う", example: "We care about our future." },
-            "come up with": { pron: "/kʌm ʌp wɪð/", meaning: "思いつく、考案する", example: "She came up with a great idea." },
-            "point out": { pron: "/pɔɪnt aʊt/", meaning: "指摘する", example: "He pointed out the mistake." },
-            "take care of": { pron: "/teɪk kɛər ɒv/", meaning: "世話をする、処理する", example: "I will take care of it." },
-            "make sure": { pron: "/meɪk ʃʊər/", meaning: "確かめる、確実にする", example: "Make sure you lock the door." },
-            "in order to": { pron: "/ɪn ˈɔːrdər tuː/", meaning: "～するために", example: "Study hard in order to pass." },
+            "such as": { pron: "/sʌtʃ æz/", meaning: "例えば～のような", example: "Sports such as tennis." },
+            "depend on": { pron: "/dɪˈpɛnd ɒn/", meaning: "～次第である", example: "It depends on the situation." },
+            "care about": { pron: "/kɛər əˈbaʊt/", meaning: "～を気にする", example: "We care about our future." },
+            "come up with": { pron: "/kʌm ʌp wɪð/", meaning: "思いつく", example: "Come up with a great idea." },
+            "point out": { pron: "/pɔɪnt aʊt/", meaning: "指摘する", example: "Point out the mistake." },
+            "make sure": { pron: "/meɪk ʃʊər/", meaning: "確かめる", example: "Make sure you lock the door." },
+            "in order to": { pron: "/ɪn ˈɔːrdər tuː/", meaning: "～するために", example: "Study in order to pass." },
             "as soon as": { pron: "/æz suːn æz/", meaning: "～するとすぐに", example: "Call me as soon as you arrive." },
-            "deal with": { pron: "/diːl wɪð/", meaning: "対処する、扱う", example: "We must deal with this problem." },
-            "find out": { pron: "/faɪnd aʊt/", meaning: "見つけ出す、知る", example: "I want to find out the truth." },
-            "overwhelming": { pron: "/ˌoʊvərˈwɛlmɪŋ/", meaning: "圧倒的な", example: "It was an overwhelming experience." },
-            "expression skills": { pron: "/ɪkˈsprɛʃən skɪlz/", meaning: "表現力", example: "Develop your expression skills." },
-            "language skills": { pron: "/ˈlæŋɡwɪdʒ skɪlz/", meaning: "語学力、言語能力", example: "Improve your language skills." },
-            "vocabulary": { pron: "/voʊˈkæbjəˌlɛri/", meaning: "語彙", example: "Build up your vocabulary everyday." }
+            "deal with": { pron: "/diːl wɪð/", meaning: "対処する", example: "Deal with this problem." },
+            "find out": { pron: "/faɪnd aʊt/", meaning: "見つけ出す", example: "Find out the truth." },
+            "overwhelming": { pron: "/ˌoʊvərˈwɛlmɪŋ/", meaning: "圧倒的な", example: "An overwhelming experience." },
+            "foundations": { pron: "/faʊnˈdeɪʃənz/", meaning: "財団、基礎", example: "Set up foundations." },
+            "donations": { pron: "/doʊˈneɪʃənz/", meaning: "寄付、募金", example: "Foundations and donations." },
+            "poverty": { pron: "/ˈpɒvərti/", meaning: "貧困", example: "Without poverty." },
+            "strife": { pron: "/straɪf/", meaning: "争い、衝突", example: "Poverty and strife." },
+            "unique": { pron: "/juˈniːk/", meaning: "独自の、ユニークな", example: "That unique talent." },
+            "talent": { pron: "/ˈtælənt/", meaning: "才能", example: "Unique talent." },
+            "trampling": { pron: "/ˈtræmpəlɪŋ/", meaning: "踏みつけること", example: "Trampling on its purity." },
+            "purity": { pron: "/ˈpjʊərɪti/", meaning: "純粋さ", example: "Purity and feelings." },
+            "feelings": { pron: "/ˈfiːlɪŋz/", meaning: "気持ち、感情", example: "Purity and feelings." },
+            "siblings": { pron: "/ˈsɪblɪŋz/", meaning: "きょうだい", example: "Caring siblings." },
+            "gaze": { pron: "/ɡeɪz/", meaning: "まなざし、凝視", example: "Enveloping gaze." },
+            "animals": { pron: "/ˈænɪməlz/", meaning: "動物たち", example: "Talk to animals." },
+            "children": { pron: "/ˈtʃɪldrən/", meaning: "子どもたち", example: "Care of children." },
+            "world": { pron: "/wɜːrld/", meaning: "世界", example: "Create a world." },
+            "drama": { pron: "/ˈdrɑːmə/", meaning: "ドラマ、劇的なこと", example: "It's like a drama." }
         };
 
         let matched = [];
 
-        // 1. 英文（lowerText）がある場合は、まずそこに含まれている表現を優先抽出
-        if (lowerText) {
-            for (let [phrase, info] of Object.entries(proIdiomChunkDatabase)) {
-                if (lowerText.includes(phrase)) {
-                    if (!matched.some(item => item.word === phrase)) {
-                        matched.push({ word: phrase, ...info });
-                    }
+        // 英文に実際に含まれている表現だけを完全一致でチェックする（絶対に架空のものは足さない）
+        for (let [phrase, info] of Object.entries(masterDictionary)) {
+            if (lowerText.includes(phrase)) {
+                if (!matched.some(item => item.word === phrase)) {
+                    matched.push({ word: phrase, ...info });
                 }
             }
         }
 
-        // 2. 英文に含まれるものだけでは足りない場合や初回時、マスター辞書からランダムにシャッフルして合計10〜12個にする
-        let allKeys = Object.keys(proIdiomChunkDatabase);
-        allKeys.sort(() => Math.random() - 0.5);
+        currentVocabData = matched.slice(0, 12); // 最大12個
 
-        for (let key of allKeys) {
-            if (!matched.some(item => item.word === key) && matched.length < 12) {
-                matched.push({ word: key, ...proIdiomChunkDatabase[key] });
-            }
+        if (currentVocabData.length === 0) {
+            alert("英文の中に辞書登録された一致する表現が見つかりませんでした。");
         }
 
-        currentVocabData = matched.slice(0, 12);
         renderVocabTable();
     }
 
